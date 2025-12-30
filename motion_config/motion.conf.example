@@ -1,0 +1,22 @@
+# Motion daemon example configuration for cat-motion.
+
+daemon on
+width 1280
+height 720
+framerate 20
+threshold 1500
+noise_level 32
+stream_port 8081
+webcontrol_port 8080
+stream_auth_method 0
+stream_localhost off
+webcontrol_localhost off
+movie_output on
+movie_quality 80
+movie_max_time 0
+movie_filename %Y%m%d-%H%M%S
+movie_bitrate 3000000
+target_dir /var/lib/motion-clips
+
+# Uncomment and adjust masks as needed.
+# mask_file /etc/motion/mask.pgm

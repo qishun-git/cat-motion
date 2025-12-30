@@ -1,0 +1,36 @@
+base_dir: "."
+
+recorder:
+  motion_drop_dir: "/var/lib/motion-clips"
+  settle_time_s: 3.0
+  min_duration_s: 2.0
+
+detection:
+  model: "models/detection.onnx"
+  input_size: [640, 640]
+  class_ids: [0]
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+
+recognition:
+  embeddings: "models/embeddings.npz"
+  labels: "models/labels.json"
+  threshold: 0.75
+  face_size: 100
+
+processing:
+  frame_stride: 2
+  detection_interval: 0.5
+  trim_padding_seconds: 1.0
+  recognition_margin: 0.05
+  training_refresh_count: 10
+  unlabeled_save_limit: 25
+  unlabeled_per_second: true
+  trim_clip: true
+  enable_compression: true
+  compression_scale: 0.5
+
+web:
+  host: "0.0.0.0"
+  port: 8080
+  stream_url: "http://pi.local:8081"

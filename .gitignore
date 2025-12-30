@@ -12,8 +12,6 @@ data/unknown_clips/*
 data/unlabeled/*
 data/training/*
 models/*
-!data/.gitkeep
-!models/.gitkeep
 
 # Tooling
 .mypy_cache/
