@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data artifacts
+data/clips/*
+data/compressed_clips/*
+data/recognized_clips/*
+data/unknown_clips/*
+data/unlabeled/*
+data/training/*
+models/*
+!data/.gitkeep
+!models/.gitkeep
+
+# Tooling
+.mypy_cache/
+.pytest_cache/
+.idea/
+.vscode/
+
+# Motion outputs
+motion_config/*.local
