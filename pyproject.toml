@@ -37,3 +37,7 @@ cat-motion-collector = "collector.service:cli"
 cat-motion-processor = "processor.pipeline:cli"
 cat-motion-web = "web.app:cli"
 cat-motion-train = "train_embeddings:cli"
+
+[tool.setuptools.packages.find]
+include = ["cat_motion*", "collector*", "processor*", "web*"]
+exclude = ["configs*", "motion_config*"]

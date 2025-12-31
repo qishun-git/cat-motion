@@ -6,7 +6,7 @@ recorder:
   min_duration_s: 2.0
 
 detection:
-  model: "models/detection.onnx"
+  model: "yolov5n.onnx"
   input_size: [640, 640]
   class_ids: [0]
   conf_threshold: 0.25
