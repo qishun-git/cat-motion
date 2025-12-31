@@ -14,7 +14,7 @@
 
 {% if training_entries %}
   {% for label, images in training_entries.items() %}
-  <section class="card">
+  <section class="card" data-label="{{ label }}">
     <div class="section-header">
       <div>
         <p class="eyebrow">Label</p>
@@ -22,9 +22,21 @@
       </div>
       <span class="badge">{{ images | length }} image(s)</span>
     </div>
+    <div class="gallery-toolbar" data-label="{{ label }}">
+      <div class="form-row">
+        <button type="button" class="btn btn-danger bulk-delete">Delete selected</button>
+        <button type="button" class="btn btn-ghost select-all">Select all</button>
+        <button type="button" class="btn btn-secondary clear-selection">Clear</button>
+      </div>
+      <small class="selection-count muted">0 selected</small>
+    </div>
     <div class="gallery-grid">
       {% for image in images %}
       <figure class="media-card" data-label="{{ label }}" data-image="{{ image }}">
+        <label class="select-checkbox">
+          <input type="checkbox" class="select-image" />
+          <span></span>
+        </label>
         <div class="media-frame media-frame--preview">
           <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
         </div>
@@ -47,30 +59,106 @@
 {% endif %}
 
 <script>
-  document.querySelectorAll(".delete-training").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("Delete this training image?")) {
+  const removeCardIfEmpty = (figure) => {
+    const section = figure.closest("section.card");
+    if (!section) return;
+    if (section.querySelectorAll("figure").length === 0) {
+      section.remove();
+    }
+  };
+
+  document.querySelectorAll(".gallery-toolbar[data-label]").forEach((toolbar) => {
+    const section = toolbar.closest("section.card");
+    const label = toolbar.dataset.label;
+    const bulkDeleteBtn = toolbar.querySelector(".bulk-delete");
+    const selectAllBtn = toolbar.querySelector(".select-all");
+    const clearBtn = toolbar.querySelector(".clear-selection");
+    const countEl = toolbar.querySelector(".selection-count");
+
+    const getCheckboxes = () => Array.from(section.querySelectorAll(".select-image"));
+
+    const updateCount = () => {
+      const selectedCount = getCheckboxes().filter((c) => c.checked).length;
+      countEl.textContent = `${selectedCount} selected`;
+      bulkDeleteBtn.disabled = selectedCount === 0;
+    };
+
+    getCheckboxes().forEach((checkbox) => {
+      checkbox.addEventListener("change", updateCount);
+    });
+
+    selectAllBtn?.addEventListener("click", () => {
+      getCheckboxes().forEach((checkbox) => {
+        checkbox.checked = true;
+      });
+      updateCount();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      getCheckboxes().forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+      updateCount();
+    });
+
+    section.querySelectorAll(".delete-training").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const figure = btn.closest("figure");
+        const payload = {
+          label: figure.dataset.label,
+          image: figure.dataset.image,
+        };
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/training/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error("failed");
+          figure.remove();
+          removeCardIfEmpty(figure);
+        } catch (err) {
+          alert("Failed to delete image.");
+          btn.disabled = false;
+          return;
+        }
+        updateCount();
+      });
+    });
+
+    bulkDeleteBtn.addEventListener("click", async () => {
+      const selectedImages = getCheckboxes()
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.closest("figure").dataset.image);
+      if (!selectedImages.length) {
+        alert("Select at least one image.");
         return;
       }
-      const figure = btn.closest("figure");
-      const payload = {
-        label: figure.dataset.label,
-        image: figure.dataset.image,
-      };
-      btn.disabled = true;
+      bulkDeleteBtn.disabled = true;
       try {
-        const res = await fetch("/api/training/delete", {
+        const res = await fetch(`/api/training/${encodeURIComponent(label)}/bulk-delete`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ images: selectedImages }),
         });
         if (!res.ok) throw new Error("failed");
-        figure.remove();
+        selectedImages.forEach((image) => {
+          const figure = Array.from(section.querySelectorAll("figure")).find((fig) => fig.dataset.image === image);
+          if (figure) {
+            figure.remove();
+            removeCardIfEmpty(figure);
+          }
+        });
       } catch (err) {
-        alert("Failed to delete image.");
-        btn.disabled = false;
+        alert("Failed to delete images.");
+      } finally {
+        bulkDeleteBtn.disabled = false;
+        updateCount();
       }
     });
+
+    updateCount();
   });
 
   document.querySelectorAll(".assign-training-form").forEach((form) => {

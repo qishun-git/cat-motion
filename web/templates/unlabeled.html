@@ -22,10 +22,11 @@
       </div>
       <span class="badge">{{ images | length }} image(s)</span>
     </div>
-    <div class="bucket-toolbar" data-folder="{{ folder }}">
+    <div class="gallery-toolbar" data-folder="{{ folder }}">
       <div class="form-row">
         <input type="text" list="known-labels" class="bulk-label-input" placeholder="Label name" />
         <button type="button" class="btn btn-primary bulk-assign">Assign selected</button>
+        <button type="button" class="btn btn-danger bulk-delete">Delete selected</button>
         <button type="button" class="btn btn-ghost select-all">Select all</button>
         <button type="button" class="btn btn-secondary clear-selection">Clear</button>
       </div>
@@ -60,7 +61,7 @@
 {% endif %}
 
 <script>
-  const removeBucketIfEmpty = (figure) => {
+  const removeCardIfEmpty = (figure) => {
     const section = figure.closest("section.card");
     if (!section) return;
     if (section.querySelectorAll("figure").length === 0) {
@@ -68,40 +69,23 @@
     }
   };
 
-  document.querySelectorAll(".delete-unlabeled").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("Delete this image?")) return;
-      const figure = btn.closest("figure");
-      btn.disabled = true;
-      try {
-        const res = await fetch(`/api/unlabeled/${figure.dataset.folder}/${figure.dataset.image}/delete`, {
-          method: "POST",
-        });
-        if (!res.ok) throw new Error("failed");
-        figure.remove();
-        removeBucketIfEmpty(figure);
-      } catch (err) {
-        alert("Failed to delete image.");
-        btn.disabled = false;
-      }
-    });
-  });
-
-  document.querySelectorAll(".bucket-toolbar").forEach((toolbar) => {
-    const formWrapper = toolbar.closest("section");
+  document.querySelectorAll(".gallery-toolbar[data-folder]").forEach((toolbar) => {
+    const section = toolbar.closest("section");
     const folder = toolbar.dataset.folder;
     const labelInput = toolbar.querySelector(".bulk-label-input");
     const assignBtn = toolbar.querySelector(".bulk-assign");
+    const bulkDeleteBtn = toolbar.querySelector(".bulk-delete");
     const clearBtn = toolbar.querySelector(".clear-selection");
     const selectAllBtn = toolbar.querySelector(".select-all");
     const countEl = toolbar.querySelector(".selection-count");
 
-    const getCheckboxes = () => Array.from(formWrapper.querySelectorAll(".select-image"));
+    const getCheckboxes = () => Array.from(section.querySelectorAll(".select-image"));
 
     const updateCount = () => {
       const selectedCount = getCheckboxes().filter((c) => c.checked).length;
       countEl.textContent = `${selectedCount} selected`;
       assignBtn.disabled = selectedCount === 0;
+      bulkDeleteBtn.disabled = selectedCount === 0;
     };
 
     getCheckboxes().forEach((checkbox) => {
@@ -120,6 +104,26 @@
         checkbox.checked = true;
       });
       updateCount();
+    });
+
+    section.querySelectorAll(".delete-unlabeled").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const figure = btn.closest("figure");
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/unlabeled/${folder}/${figure.dataset.image}/delete`, {
+            method: "POST",
+          });
+          if (!res.ok) throw new Error("failed");
+          figure.remove();
+          removeCardIfEmpty(figure);
+        } catch (err) {
+          alert("Failed to delete image.");
+          btn.disabled = false;
+          return;
+        }
+        updateCount();
+      });
     });
 
     assignBtn.addEventListener("click", async () => {
@@ -144,10 +148,10 @@
         });
         if (!res.ok) throw new Error("failed");
         selectedImages.forEach((image) => {
-          const figure = Array.from(formWrapper.querySelectorAll("figure")).find((fig) => fig.dataset.image === image);
+          const figure = Array.from(section.querySelectorAll("figure")).find((fig) => fig.dataset.image === image);
           if (figure) {
             figure.remove();
-            removeBucketIfEmpty(figure);
+            removeCardIfEmpty(figure);
           }
         });
         labelInput.value = label;
@@ -155,6 +159,37 @@
         alert("Failed to assign images.");
       } finally {
         assignBtn.disabled = false;
+        updateCount();
+      }
+    });
+
+    bulkDeleteBtn.addEventListener("click", async () => {
+      const selectedImages = getCheckboxes()
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.closest("figure").dataset.image);
+      if (!selectedImages.length) {
+        alert("Select at least one image.");
+        return;
+      }
+      bulkDeleteBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/unlabeled/${folder}/bulk-delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ images: selectedImages }),
+        });
+        if (!res.ok) throw new Error("failed");
+        selectedImages.forEach((image) => {
+          const figure = Array.from(section.querySelectorAll("figure")).find((fig) => fig.dataset.image === image);
+          if (figure) {
+            figure.remove();
+            removeCardIfEmpty(figure);
+          }
+        });
+      } catch (err) {
+        alert("Failed to delete images.");
+      } finally {
+        bulkDeleteBtn.disabled = false;
         updateCount();
       }
     });

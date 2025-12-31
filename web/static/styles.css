@@ -437,14 +437,14 @@ figcaption {
   width: 100%;
 }
 
-.bucket-toolbar {
+.gallery-toolbar {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
 
-.bucket-toolbar .selection-count {
+.gallery-toolbar .selection-count {
   font-size: 0.85rem;
 }
 

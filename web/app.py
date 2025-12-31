@@ -83,7 +83,9 @@ class WebState:
         if not root.exists():
             return entries
         for folder in sorted(p for p in root.iterdir() if p.is_dir()):
-            entries[folder.name] = [img.name for img in sorted(folder.glob("*.png"))]
+            images = [img.name for img in sorted(folder.glob("*.png"))]
+            if images:
+                entries[folder.name] = images
         return entries
 
     def known_labels(self) -> List[str]:
@@ -113,6 +115,10 @@ class AssignRequest(BaseModel):
 
 class BulkAssignRequest(BaseModel):
     label: str
+    images: List[str]
+
+
+class BulkDeleteRequest(BaseModel):
     images: List[str]
 
 
@@ -268,11 +274,24 @@ def create_app(state: WebState) -> FastAPI:
 
     def _cleanup_unlabeled_folder(folder: str) -> None:
         folder_path = _unlabeled_folder(folder)
-        if folder_path.exists():
-            try:
-                next(folder_path.iterdir())
-            except StopIteration:
-                folder_path.rmdir()
+        if not folder_path.exists():
+            return
+        has_png = any(child.is_file() and child.suffix.lower() == ".png" for child in folder_path.iterdir())
+        if not has_png:
+            shutil.rmtree(folder_path, ignore_errors=True)
+
+    def _unique_image_names(names: List[str]) -> List[str]:
+        seen: set[str] = set()
+        image_names: List[str] = []
+        for name in names:
+            normalized = name.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            image_names.append(normalized)
+        if not image_names:
+            raise HTTPException(status_code=400, detail="No images provided")
+        return image_names
 
     @fastapi_app.get("/unlabeled/{folder}/{image}")
     async def unlabeled_image(folder: str, image: str) -> FileResponse:
@@ -327,16 +346,7 @@ def create_app(state: WebState) -> FastAPI:
     @fastapi_app.post("/api/unlabeled/{folder}/bulk-assign")
     async def bulk_assign_unlabeled(folder: str, payload: BulkAssignRequest) -> JSONResponse:
         label = _validate_label(payload.label)
-        seen = set()
-        image_names: List[str] = []
-        for name in payload.images:
-            normalized = name.strip()
-            if not normalized or normalized in seen:
-                continue
-            seen.add(normalized)
-            image_names.append(normalized)
-        if not image_names:
-            raise HTTPException(status_code=400, detail="No images provided")
+        image_names = _unique_image_names(payload.images)
         assigned = 0
         for image_name in image_names:
             image_path = _unlabeled_image_path(folder, image_name)
@@ -346,6 +356,26 @@ def create_app(state: WebState) -> FastAPI:
             assigned += 1
         _cleanup_unlabeled_folder(folder)
         return JSONResponse({"status": "assigned", "count": assigned})
+
+    @fastapi_app.post("/api/unlabeled/{folder}/bulk-delete")
+    async def bulk_delete_unlabeled(folder: str, payload: BulkDeleteRequest) -> JSONResponse:
+        image_names = _unique_image_names(payload.images)
+        deleted = 0
+        for image_name in image_names:
+            image_path = _unlabeled_image_path(folder, image_name)
+            if not image_path.exists():
+                raise HTTPException(status_code=404, detail=f"{image_name} not found")
+            image_path.unlink()
+            deleted += 1
+        _cleanup_unlabeled_folder(folder)
+        return JSONResponse({"status": "deleted", "count": deleted})
+
+    def _training_image_path(label: str, image: str) -> Path:
+        label_dir = state.paths.training / label
+        try:
+            return safe_join(label_dir, image)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid image path")
 
     @fastapi_app.post("/api/unlabeled/{folder}/{image}/delete")
     async def delete_unlabeled_image(folder: str, image: str) -> JSONResponse:
@@ -396,15 +426,23 @@ def create_app(state: WebState) -> FastAPI:
 
     @fastapi_app.post("/api/training/delete")
     async def delete_training(payload: TrainingDeleteRequest) -> JSONResponse:
-        label_dir = state.paths.training / payload.label
-        try:
-            image_path = safe_join(label_dir, payload.image)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid image path")
+        image_path = _training_image_path(payload.label, payload.image)
         if not image_path.exists():
             raise HTTPException(status_code=404, detail="Image not found")
         image_path.unlink()
         return JSONResponse({"status": "removed"})
+
+    @fastapi_app.post("/api/training/{label}/bulk-delete")
+    async def bulk_delete_training(label: str, payload: BulkDeleteRequest) -> JSONResponse:
+        image_names = _unique_image_names(payload.images)
+        deleted = 0
+        for image_name in image_names:
+            image_path = _training_image_path(label, image_name)
+            if not image_path.exists():
+                raise HTTPException(status_code=404, detail=f"{image_name} not found")
+            image_path.unlink()
+            deleted += 1
+        return JSONResponse({"status": "deleted", "count": deleted})
 
     @fastapi_app.post("/api/training/assign")
     async def assign_training(payload: TrainingAssignRequest) -> JSONResponse:
