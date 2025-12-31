@@ -14,7 +14,7 @@
 
 {% if unlabeled_entries %}
   {% for folder, images in unlabeled_entries.items() %}
-  <section class="card">
+  <section class="card" data-folder="{{ folder }}">
     <div class="section-header">
       <div>
         <p class="eyebrow">Bucket</p>
@@ -22,17 +22,25 @@
       </div>
       <span class="badge">{{ images | length }} image(s)</span>
     </div>
+    <div class="bucket-toolbar" data-folder="{{ folder }}">
+      <div class="form-row">
+        <input type="text" list="known-labels" class="bulk-label-input" placeholder="Label name" />
+        <button type="button" class="btn btn-primary bulk-assign">Assign selected</button>
+        <button type="button" class="btn btn-secondary clear-selection">Clear</button>
+      </div>
+      <small class="selection-count muted">0 selected</small>
+    </div>
     <div class="gallery-grid">
       {% for image in images %}
       <figure class="media-card" data-folder="{{ folder }}" data-image="{{ image }}">
+        <label class="select-checkbox">
+          <input type="checkbox" class="select-image" />
+          <span></span>
+        </label>
         <div class="media-frame">
           <img src="/unlabeled/{{ folder | urlencode }}/{{ image | urlencode }}" alt="{{ folder }}" />
         </div>
         <figcaption>{{ image }}</figcaption>
-        <form class="form-row assign-unlabeled-form">
-          <input type="text" name="label" list="known-labels" placeholder="Label name" />
-          <button type="submit" class="btn btn-primary">Assign</button>
-        </form>
         <button type="button" class="btn btn-danger delete-unlabeled">Delete</button>
       </figure>
       {% endfor %}
@@ -51,34 +59,6 @@
 {% endif %}
 
 <script>
-  document.querySelectorAll(".assign-unlabeled-form").forEach((form) => {
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const figure = form.closest("figure");
-      const label = form.querySelector("input[name='label']").value.trim();
-      if (!label) {
-        alert("Enter a label.");
-        return;
-      }
-      const payload = {
-        label,
-      };
-      form.querySelector("button").disabled = true;
-      try {
-        const res = await fetch(`/api/unlabeled/${figure.dataset.folder}/${figure.dataset.image}/assign`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("failed");
-        figure.remove();
-      } catch (err) {
-        alert("Failed to assign image.");
-        form.querySelector("button").disabled = false;
-      }
-    });
-  });
-
   document.querySelectorAll(".delete-unlabeled").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Delete this image?")) return;
@@ -95,6 +75,70 @@
         btn.disabled = false;
       }
     });
+  });
+
+  document.querySelectorAll(".bucket-toolbar").forEach((toolbar) => {
+    const formWrapper = toolbar.closest("section");
+    const folder = toolbar.dataset.folder;
+    const labelInput = toolbar.querySelector(".bulk-label-input");
+    const assignBtn = toolbar.querySelector(".bulk-assign");
+    const clearBtn = toolbar.querySelector(".clear-selection");
+    const countEl = toolbar.querySelector(".selection-count");
+
+    const getCheckboxes = () => Array.from(formWrapper.querySelectorAll(".select-image"));
+
+    const updateCount = () => {
+      const selectedCount = getCheckboxes().filter((c) => c.checked).length;
+      countEl.textContent = `${selectedCount} selected`;
+      assignBtn.disabled = selectedCount === 0;
+    };
+
+    getCheckboxes().forEach((checkbox) => {
+      checkbox.addEventListener("change", updateCount);
+    });
+
+    clearBtn.addEventListener("click", () => {
+      getCheckboxes().forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+      updateCount();
+    });
+
+    assignBtn.addEventListener("click", async () => {
+      const label = labelInput.value.trim();
+      if (!label) {
+        alert("Enter a label.");
+        return;
+      }
+      const selectedImages = getCheckboxes()
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.closest("figure").dataset.image);
+      if (!selectedImages.length) {
+        alert("Select at least one image.");
+        return;
+      }
+      assignBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/unlabeled/${folder}/bulk-assign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label, images: selectedImages }),
+        });
+        if (!res.ok) throw new Error("failed");
+        selectedImages.forEach((image) => {
+          const figure = Array.from(formWrapper.querySelectorAll("figure")).find((fig) => fig.dataset.image === image);
+          figure?.remove();
+        });
+        labelInput.value = label;
+      } catch (err) {
+        alert("Failed to assign images.");
+      } finally {
+        assignBtn.disabled = false;
+        updateCount();
+      }
+    });
+
+    updateCount();
   });
 </script>
 {% endblock %}

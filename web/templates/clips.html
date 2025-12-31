@@ -43,11 +43,6 @@
         <span class="chip good">{{ recognized_total }} recognized</span>
       </div>
       {% endif %}
-      <form class="form-row assign-clip-form">
-        <input type="hidden" name="category" value="recognized" />
-        <input type="text" name="label" placeholder="Label name" value="{{ clip.summary.highlight_label or '' }}" />
-        <button type="submit" class="btn btn-secondary">Move</button>
-      </form>
       <div class="card-actions">
         <a href="/clips/recognized/{{ clip.path }}" target="_blank" class="btn btn-ghost">View clip</a>
         <button type="button" class="btn btn-danger delete-clip">Delete</button>
@@ -69,6 +64,7 @@
     </div>
     <span class="badge">{{ unknown | length }}</span>
   </div>
+  <p class="muted">Unknown clips are retried during the next processing run. You can delete noisy captures below.</p>
   {% if unknown %}
   <div class="clip-grid">
     {% for clip in unknown %}
@@ -89,11 +85,6 @@
         <span class="chip warn">{{ detections }} detection(s)</span>
       </div>
       {% endif %}
-      <form class="form-row assign-clip-form">
-        <input type="hidden" name="category" value="unknown" />
-        <input list="known-labels" type="text" name="label" placeholder="Label name" />
-        <button type="submit" class="btn btn-primary">Assign label</button>
-      </form>
       <div class="card-actions">
         <a href="/clips/unknown/{{ clip.path }}" target="_blank" class="btn btn-ghost">View clip</a>
         <button type="button" class="btn btn-danger delete-clip">Delete</button>
@@ -101,49 +92,12 @@
     </article>
     {% endfor %}
   </div>
-  <datalist id="known-labels">
-    {% for label in known_labels %}
-    <option value="{{ label }}"></option>
-    {% endfor %}
-  </datalist>
   {% else %}
   <p class="card-empty">No pending clips.</p>
   {% endif %}
 </section>
 
 <script>
-  document.querySelectorAll(".assign-clip-form").forEach((form) => {
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const article = form.closest("article");
-      const labelInput = form.querySelector("input[name='label']");
-      const label = labelInput.value.trim();
-      if (!label) {
-        alert("Enter a label.");
-        return;
-      }
-      const payload = {
-        category: article.dataset.category,
-        clip: article.dataset.clip,
-        label,
-      };
-      form.querySelector("button").disabled = true;
-      try {
-        const res = await fetch("/api/clips/assign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("failed");
-        location.reload();
-      } catch (err) {
-        alert("Failed to assign clip.");
-      } finally {
-        form.querySelector("button").disabled = false;
-      }
-    });
-  });
-
   document.querySelectorAll(".delete-clip").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Delete this clip?")) return;

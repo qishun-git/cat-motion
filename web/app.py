@@ -111,6 +111,11 @@ class AssignRequest(BaseModel):
     label: str
 
 
+class BulkAssignRequest(BaseModel):
+    label: str
+    images: List[str]
+
+
 class ClipAssignRequest(BaseModel):
     category: Literal["recognized", "unknown"]
     clip: str
@@ -240,6 +245,14 @@ def create_app(state: WebState) -> FastAPI:
         state.refresh()
         return JSONResponse({"status": "ok"})
 
+    def _validate_label(raw: str) -> str:
+        label = raw.strip()
+        if not label:
+            raise HTTPException(status_code=400, detail="Label is required")
+        if any(ch in label for ch in "/\\"):
+            raise HTTPException(status_code=400, detail="Label contains invalid characters")
+        return label
+
     def _unlabeled_folder(folder: str) -> Path:
         try:
             return safe_join(state.paths.unlabeled, folder)
@@ -260,20 +273,25 @@ def create_app(state: WebState) -> FastAPI:
             raise HTTPException(status_code=404, detail="Image not found")
         return FileResponse(target)
 
+    def _assign_image_to_label(image_path: Path, label: str) -> Path:
+        dest_dir = ensure_dir(state.paths.training / label)
+        dest_path = dest_dir / image_path.name
+        counter = 1
+        while dest_path.exists():
+            dest_path = dest_dir / f"{image_path.stem}_{counter}{image_path.suffix}"
+            counter += 1
+        shutil.move(str(image_path), dest_path)
+        return dest_path
+
     @fastapi_app.post("/api/unlabeled/{folder}/assign")
     async def assign_unlabeled(folder: str, payload: AssignRequest) -> JSONResponse:
-        label = payload.label.strip()
-        if not label:
-            raise HTTPException(status_code=400, detail="Label is required")
-        if any(ch in label for ch in "/\\"):
-            raise HTTPException(status_code=400, detail="Label contains invalid characters")
+        label = _validate_label(payload.label)
         src = _unlabeled_folder(folder)
         if not src.exists():
             raise HTTPException(status_code=404, detail="Folder not found")
-        dest_dir = ensure_dir(state.paths.training / label)
         for image in sorted(src.glob("*")):
             if image.is_file():
-                shutil.move(str(image), dest_dir / image.name)
+                _assign_image_to_label(image, label)
         try:
             src.rmdir()
         except OSError:
@@ -290,20 +308,34 @@ def create_app(state: WebState) -> FastAPI:
 
     @fastapi_app.post("/api/unlabeled/{folder}/{image}/assign")
     async def assign_unlabeled_image(folder: str, image: str, payload: AssignRequest) -> JSONResponse:
-        label = payload.label.strip()
-        if not label:
-            raise HTTPException(status_code=400, detail="Label is required")
+        label = _validate_label(payload.label)
         image_path = _unlabeled_image_path(folder, image)
         if not image_path.exists():
             raise HTTPException(status_code=404, detail="Image not found")
-        dest_dir = ensure_dir(state.paths.training / label)
-        dest_path = dest_dir / image_path.name
-        counter = 1
-        while dest_path.exists():
-            dest_path = dest_dir / f"{image_path.stem}_{counter}{image_path.suffix}"
-            counter += 1
-        shutil.move(str(image_path), dest_path)
+        _assign_image_to_label(image_path, label)
         return JSONResponse({"status": "assigned"})
+
+    @fastapi_app.post("/api/unlabeled/{folder}/bulk-assign")
+    async def bulk_assign_unlabeled(folder: str, payload: BulkAssignRequest) -> JSONResponse:
+        label = _validate_label(payload.label)
+        seen = set()
+        image_names: List[str] = []
+        for name in payload.images:
+            normalized = name.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            image_names.append(normalized)
+        if not image_names:
+            raise HTTPException(status_code=400, detail="No images provided")
+        assigned = 0
+        for image_name in image_names:
+            image_path = _unlabeled_image_path(folder, image_name)
+            if not image_path.exists():
+                raise HTTPException(status_code=404, detail=f"{image_name} not found")
+            _assign_image_to_label(image_path, label)
+            assigned += 1
+        return JSONResponse({"status": "assigned", "count": assigned})
 
     @fastapi_app.post("/api/unlabeled/{folder}/{image}/delete")
     async def delete_unlabeled_image(folder: str, image: str) -> JSONResponse:
