@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login · Cat Motion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-card">
+        <h1>Sign in</h1>
+        <p>Enter an approved email address and we’ll email you a one-time login link.</p>
+        {% if status == 'success' and message %}
+        <div class="alert success">{{ message }}</div>
+        {% elif status == 'error' and message %}
+        <div class="alert error">{{ message }}</div>
+        {% endif %}
+        <form method="post" action="/login" class="login-form">
+          <input type="hidden" name="next" value="{{ next_target }}" />
+          <div class="form-field">
+            <label for="email">Email address</label>
+            <input
+              class="form-input"
+              required
+              type="email"
+              id="email"
+              name="email"
+              placeholder="you@example.com"
+              value="{{ email_value or '' }}"
+            />
+          </div>
+          <button class="btn-primary" type="submit">Send sign-in link</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

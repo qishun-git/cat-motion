@@ -33,3 +33,19 @@ web:
   port: 8000
   stream_port: 8081
   stream_path: "/?action=stream"
+
+auth:
+  secret_key: "change-me-super-secret-key"
+  allowed_emails:
+    - "you@example.com"
+  token_ttl_minutes: 15
+  session_ttl_hours: 168
+  cookie_secure: false
+  mail:
+    host: "smtp.example.com"
+    port: 587
+    username: "smtp-user"
+    password: "smtp-password"
+    use_tls: true
+    use_ssl: false
+    from_email: "Cat Motion <noreply@example.com>"

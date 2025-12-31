@@ -25,6 +25,7 @@ dependencies = [
     "onnxruntime>=1.16",
     "torch>=2.1",
     "torchvision>=0.16",
+    "itsdangerous>=2.1",
 ]
 
 [project.optional-dependencies]

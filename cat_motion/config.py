@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -69,6 +69,34 @@ class WebConfig(BaseModel):
     templates_dir: Optional[Path] = None
 
 
+class MailConfig(BaseModel):
+    host: str = Field(default="localhost")
+    port: int = Field(default=25, ge=1, le=65535)
+    username: Optional[str] = None
+    password: Optional[str] = None
+    use_tls: bool = False
+    use_ssl: bool = False
+    from_email: str = Field(default="cat-motion@localhost")
+
+
+class AuthConfig(BaseModel):
+    secret_key: str = Field(..., min_length=16)
+    allowed_emails: List[str] = Field(default_factory=list)
+    token_ttl_minutes: int = Field(default=15, ge=1)
+    session_ttl_hours: int = Field(default=168, ge=1)  # seven days by default
+    cookie_secure: bool = False
+    mail: MailConfig = MailConfig()
+
+    @field_validator("allowed_emails", mode="before")
+    @classmethod
+    def _normalize_emails(cls, value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [value]
+        return [str(item).strip().lower() for item in value if str(item).strip()]
+
+
 class AppConfig(BaseModel):
     base_dir: Path = Path(".")
     recorder: RecorderConfig = RecorderConfig()
@@ -76,6 +104,7 @@ class AppConfig(BaseModel):
     recognition: RecognitionConfig = RecognitionConfig()
     processing: ProcessingConfig = ProcessingConfig()
     web: WebConfig = WebConfig()
+    auth: AuthConfig
 
     def paths(self) -> ProjectPaths:
         return resolve_project_paths(self.base_dir)

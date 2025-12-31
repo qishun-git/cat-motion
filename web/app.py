@@ -6,11 +6,12 @@ import logging
 import shutil
 from pathlib import Path
 from typing import Dict, List, Literal, Optional
+from urllib.parse import quote, urlparse
 
 import typer
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi import FastAPI, Form, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -21,6 +22,7 @@ from cat_motion.paths import ensure_dir
 from cat_motion.training import run as train_embeddings_run
 from cat_motion.utils import safe_join
 from processor.pipeline import ClipProcessor
+from web.auth import MagicLinkAuth
 
 logger = logging.getLogger("cat_motion.web")
 
@@ -40,6 +42,7 @@ class WebState:
         self.config = config
         self.paths = config.paths()
         self.templates = Jinja2Templates(directory=str(self.paths.templates))
+        self.auth = MagicLinkAuth(config.auth)
 
     def refresh(self) -> None:
         self.__init__(load_config())
@@ -181,11 +184,52 @@ class TrainingAssignRequest(BaseModel):
     new_label: str
 
 
+SESSION_COOKIE = "cat_motion_session"
+LOGIN_EXEMPT_PATHS = {"/login", "/auth/callback"}
+
+
 def create_app(state: WebState) -> FastAPI:
     fastapi_app = FastAPI(title="Cat Motion Web")
     static_dir = state.paths.static
     static_dir.mkdir(parents=True, exist_ok=True)
     fastapi_app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    def _safe_next_target(value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        parsed = urlparse(value)
+        if parsed.scheme or parsed.netloc:
+            return None
+        path = parsed.path or "/"
+        if not path.startswith("/"):
+            path = "/" + path.lstrip("/")
+        if parsed.query:
+            path = f"{path}?{parsed.query}"
+        return path
+
+    def _current_user(request: Request) -> Optional[str]:
+        token = request.cookies.get(SESSION_COOKIE)
+        return state.auth.verify_session(token)
+
+    @fastapi_app.middleware("http")
+    async def enforce_authentication(request: Request, call_next):
+        path = request.url.path
+        if path.startswith("/static") or path in LOGIN_EXEMPT_PATHS:
+            return await call_next(request)
+        email = _current_user(request)
+        if email:
+            request.state.user = email
+            response = await call_next(request)
+            return response
+        if path.startswith("/api"):
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        next_param = ""
+        if request.method == "GET":
+            target = request.url.path
+            if request.url.query:
+                target = f"{target}?{request.url.query}"
+            next_param = f"?next={quote(target, safe='')}"
+        return RedirectResponse(f"/login{next_param}", status_code=303)
 
     def _category_root(category: str) -> Path:
         if category == "recognized":
@@ -193,6 +237,97 @@ def create_app(state: WebState) -> FastAPI:
         if category == "unknown":
             return state.paths.unknown
         raise HTTPException(status_code=404, detail="Category not found")
+
+    @fastapi_app.get("/login", response_class=HTMLResponse)
+    async def login_page(request: Request, next: Optional[str] = Query(None)) -> HTMLResponse:
+        next_target = _safe_next_target(next)
+        existing = _current_user(request)
+        if existing:
+            redirect_to = next_target or "/"
+            response = RedirectResponse(redirect_to, status_code=303)
+            response.set_cookie(
+                SESSION_COOKIE,
+                state.auth.create_session(existing),
+                max_age=state.config.auth.session_ttl_hours * 3600,
+                httponly=True,
+                samesite="lax",
+                secure=state.config.auth.cookie_secure,
+            )
+            return response
+        error = request.query_params.get("error")
+        status = None
+        message = None
+        if error == "invalid":
+            status = "error"
+            message = "Login link is invalid or expired. Request a new one."
+        context = {
+            "request": request,
+            "next_target": next_target or "",
+            "status": status,
+            "message": message,
+            "email_value": "",
+        }
+        return state.templates.TemplateResponse("login.html", context)
+
+    @fastapi_app.post("/login", response_class=HTMLResponse)
+    async def login_request(
+        request: Request,
+        email: str = Form(...),
+        next: Optional[str] = Form(None),
+    ) -> HTMLResponse:
+        cleaned_email = email.strip()
+        next_target = _safe_next_target(next)
+        base_url = str(request.base_url)
+        status: Optional[str] = None
+        message: Optional[str] = None
+        try:
+            sent = state.auth.send_login_link(cleaned_email, base_url, next_target)
+        except Exception:
+            logger.exception("Failed to send login email")
+            status = "error"
+            message = "Unable to send login email. Check SMTP settings."
+        else:
+            if not sent:
+                status = "error"
+                message = "Email is not allowed for login."
+            else:
+                status = "success"
+                message = "Check your inbox for the login link."
+        context = {
+            "request": request,
+            "next_target": next_target or "",
+            "status": status,
+            "message": message,
+            "email_value": cleaned_email,
+        }
+        response_status = 200 if status != "error" else 400
+        return state.templates.TemplateResponse("login.html", context, status_code=response_status)
+
+    @fastapi_app.get("/auth/callback")
+    async def auth_callback(request: Request, token: str) -> RedirectResponse:
+        email, next_path = state.auth.verify_login_token(token)
+        if not email:
+            response = RedirectResponse("/login?error=invalid", status_code=303)
+            response.delete_cookie(SESSION_COOKIE)
+            return response
+        session_token = state.auth.create_session(email)
+        target = _safe_next_target(next_path) or "/"
+        response = RedirectResponse(target, status_code=303)
+        response.set_cookie(
+            SESSION_COOKIE,
+            session_token,
+            max_age=state.config.auth.session_ttl_hours * 3600,
+            httponly=True,
+            samesite="lax",
+            secure=state.config.auth.cookie_secure,
+        )
+        return response
+
+    @fastapi_app.post("/logout")
+    async def logout() -> RedirectResponse:
+        response = RedirectResponse("/login", status_code=303)
+        response.delete_cookie(SESSION_COOKIE)
+        return response
 
     @fastapi_app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:

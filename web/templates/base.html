@@ -28,6 +28,14 @@
             <a class="{% if active_page == 'unlabeled' %}is-active{% endif %}" href="/unlabeled">Unlabeled</a>
             <a class="{% if active_page == 'training' %}is-active{% endif %}" href="/training">Training</a>
           </nav>
+          {% if request.state.user %}
+          <div class="user-actions">
+            <span class="user-chip">{{ request.state.user }}</span>
+            <form class="logout-form" method="post" action="/logout">
+              <button type="submit">Log out</button>
+            </form>
+          </div>
+          {% endif %}
         </div>
       </header>
       <main class="page-container">
