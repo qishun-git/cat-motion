@@ -4,6 +4,7 @@ import json
 import logging
 import random
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -322,31 +323,50 @@ def trim_clip_to_range(clip_path: Path, start_frame: int, end_frame: int, fps: f
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     safe_start = max(1, min(start_frame, total_frames or start_frame))
     safe_end = max(safe_start, min(end_frame, total_frames or end_frame))
-    if safe_start == 1 and (total_frames == 0 or safe_end >= total_frames):
+    duration = (total_frames / fps) if (fps > 0 and total_frames > 0) else None
+    start_time = max(0.0, (safe_start - 1) / fps if fps > 0 else 0.0)
+    end_time = (safe_end / fps) if fps > 0 else 0.0
+    if safe_start == 1 and (duration is None or end_time >= (duration - 1 / max(fps, 1))):
         cap.release()
         return
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    cap.release()
+    _trim_with_ffmpeg(clip_path, start_time, end_time)
+
+
+def _trim_with_ffmpeg(clip_path: Path, start_time: float, end_time: float) -> bool:
+    if start_time < 0 or end_time <= start_time:
+        return False
+    if shutil.which("ffmpeg") is None:
+        logger.warning("ffmpeg not found; cannot trim %s", clip_path.name)
+        return False
     temp_path = clip_path.with_suffix(".trim_tmp" + clip_path.suffix)
-    writer = cv2.VideoWriter(str(temp_path), fourcc, fps, (width, height))
-    if not writer.isOpened():
-        cap.release()
-        return
-    frame_idx = 0
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-ss",
+        f"{start_time:.3f}",
+        "-to",
+        f"{end_time:.3f}",
+        "-i",
+        str(clip_path),
+        "-c",
+        "copy",
+        str(temp_path),
+    ]
     try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame_idx += 1
-            if frame_idx < safe_start:
-                continue
-            if frame_idx > safe_end:
-                break
-            writer.write(frame)
-    finally:
-        cap.release()
-        writer.release()
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as exc:
+        logger.warning("ffmpeg trim failed for %s: %s", clip_path.name, exc)
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+        return False
     temp_path.replace(clip_path)
+    return True
 
 
 @app.command()
