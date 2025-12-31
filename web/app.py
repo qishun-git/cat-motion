@@ -20,6 +20,7 @@ from cat_motion import AppConfig, load_config
 from cat_motion.paths import ensure_dir
 from cat_motion.utils import safe_join
 from processor.pipeline import ClipProcessor
+from train_embeddings import run as train_embeddings_run
 
 logger = logging.getLogger("cat_motion.web")
 
@@ -245,6 +246,25 @@ def create_app(state: WebState) -> FastAPI:
 
         processed = await asyncio.to_thread(_run)
         return JSONResponse({"processed": processed})
+
+    @fastapi_app.post("/api/train")
+    async def trigger_training() -> JSONResponse:
+        def _run() -> None:
+            train_embeddings_run(
+                config_path=None,
+                training_dir=None,
+                embeddings_path=None,
+                labels_path=None,
+                device=None,
+                verbose=False,
+            )
+
+        try:
+            await asyncio.to_thread(_run)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Training failed")
+            raise HTTPException(status_code=500, detail=str(exc))
+        return JSONResponse({"status": "trained"})
 
     @fastapi_app.post("/api/refresh")
     async def refresh_config() -> JSONResponse:

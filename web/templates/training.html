@@ -9,7 +9,13 @@
     <h1>Curate your dataset</h1>
     <p class="muted">Adjust labels, clean noisy captures, and keep embeddings fresh.</p>
   </div>
-  <span class="chip">{{ training_entries | length }} label group(s)</span>
+  <div>
+    <span class="chip">{{ training_entries | length }} label group(s)</span>
+    <div class="hero-actions" style="margin-top: 0.5rem">
+      <button type="button" class="btn btn-primary" id="train-btn">Train embeddings</button>
+      <small class="muted" id="train-status"></small>
+    </div>
+  </div>
 </section>
 
 {% if training_entries %}
@@ -189,5 +195,23 @@
       }
     });
   });
+
+  const trainBtn = document.getElementById("train-btn");
+  const trainStatus = document.getElementById("train-status");
+  if (trainBtn) {
+    trainBtn.addEventListener("click", async () => {
+      trainBtn.disabled = true;
+      trainStatus.textContent = "Training…";
+      try {
+        const res = await fetch("/api/train", { method: "POST" });
+        if (!res.ok) throw new Error("failed");
+        trainStatus.textContent = "Embeddings updated.";
+      } catch (err) {
+        trainStatus.textContent = "Training failed.";
+      } finally {
+        trainBtn.disabled = false;
+      }
+    });
+  }
 </script>
 {% endblock %}
