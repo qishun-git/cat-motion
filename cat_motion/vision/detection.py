@@ -46,6 +46,7 @@ class YoloOnnxDetector(BaseDetector):
         )
         input_meta = self.session.get_inputs()[0]
         self.input_name = input_meta.name
+        self.input_type = getattr(input_meta, "type", "tensor(float)")
         shape = getattr(input_meta, "shape", None)
         if shape and len(shape) == 4:
             _, _, h_dim, w_dim = shape
@@ -92,6 +93,8 @@ class YoloOnnxDetector(BaseDetector):
         rgb = cv2.cvtColor(padded, cv2.COLOR_BGR2RGB)
         tensor = rgb.astype(np.float32) / 255.0
         tensor = np.transpose(tensor, (2, 0, 1))[None, ...]
+        if self.input_type == "tensor(float16)":
+            tensor = tensor.astype(np.float16)
         return tensor, scale, (dw, dh)
 
     def _xywh_to_xywh(
