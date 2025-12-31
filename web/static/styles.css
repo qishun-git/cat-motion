@@ -99,6 +99,18 @@ button:disabled {
   gap: 1rem;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.summary-grid article .metric {
+  font-size: 2.5rem;
+  font-weight: 600;
+  margin: 0.25rem 0 0.5rem;
+}
+
 .clip-list article {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -118,6 +130,15 @@ button:disabled {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.clip-list article video {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 0.5rem;
+  max-height: 220px;
+  background: #000;
 }
 
 .clip-list article input[type="text"] {
@@ -179,6 +200,19 @@ button:disabled {
 .training-grid figcaption {
   font-size: 0.85rem;
   text-align: center;
+}
+
+.training-grid form {
+  width: 100%;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.training-grid form input[type="text"] {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  padding: 0.35rem 0.6rem;
 }
 
 footer {

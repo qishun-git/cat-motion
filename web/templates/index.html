@@ -17,58 +17,29 @@
 </section>
 
 <section>
-  <h2>Recognized Clips</h2>
-  <div class="clip-list">
-    {% for clip in recognized %}
+  <h2>Summary</h2>
+  <div class="summary-grid">
     <article>
-      <h3>{{ clip.summary.label if clip.summary else "Unknown" }}</h3>
-      <p>{{ clip.path }}</p>
-      <small>{{ clip.size_mb }} MB</small>
+      <h3>Recognized Clips</h3>
+      <p class="metric">{{ recognized_count }}</p>
+      <a href="/clips">Manage Clips</a>
     </article>
-    {% else %}
-    <p>No recognized clips yet.</p>
-    {% endfor %}
-  </div>
-</section>
-
-<section>
-  <h2>Needs Review</h2>
-  <div class="clip-list">
-    {% for clip in unknown %}
     <article>
-      <h3>Pending</h3>
-      <p>{{ clip.path }}</p>
-      <small>{{ clip.size_mb }} MB</small>
+      <h3>Needs Review</h3>
+      <p class="metric">{{ unknown_count }}</p>
+      <a href="/clips">Label Clips</a>
     </article>
-    {% else %}
-    <p>No pending clips! 🎉</p>
-    {% endfor %}
-  </div>
-</section>
-
-<section>
-  <h2>Unlabeled Buckets</h2>
-  <small id="unlabeled-status"></small>
-  <div class="clip-list unlabeled">
-    {% for folder in unlabeled %}
-    <article data-folder="{{ folder.name }}">
-      <h3>{{ folder.name }}</h3>
-      <p>{{ folder.count }} items</p>
-      <form class="assign-form">
-        <input name="label" type="text" list="known-labels" placeholder="Label name" autocomplete="off" />
-        <button type="submit" class="secondary">Assign</button>
-        <button type="button" class="danger delete-btn">Delete</button>
-      </form>
+    <article>
+      <h3>Unlabeled Images</h3>
+      <p class="metric">{{ unlabeled_count }}</p>
+      <a href="/clips">Process Clips</a>
     </article>
-    {% else %}
-    <p>No unlabeled captures.</p>
-    {% endfor %}
+    <article>
+      <h3>Training Images</h3>
+      <p class="metric">{{ training_count }}</p>
+      <a href="/training">Review Training Set</a>
+    </article>
   </div>
-  <datalist id="known-labels">
-    {% for label in known_labels %}
-    <option value="{{ label }}"></option>
-    {% endfor %}
-  </datalist>
 </section>
 
 <script>
@@ -102,50 +73,5 @@
     });
   }
 
-  const unlabeledStatus = document.getElementById("unlabeled-status");
-  document.querySelectorAll(".assign-form").forEach((form) => {
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const article = form.closest("article");
-      const folder = article.dataset.folder;
-      const labelInput = form.querySelector("input[name='label']");
-      const label = labelInput.value.trim();
-      if (!label) {
-        unlabeledStatus.textContent = "Enter a label before assigning.";
-        return;
-      }
-      form.querySelectorAll("button").forEach((btn) => (btn.disabled = true));
-      try {
-        const res = await fetch(`/api/unlabeled/${folder}/assign`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label }),
-        });
-        if (!res.ok) throw new Error("request failed");
-        unlabeledStatus.textContent = `Assigned ${folder} -> ${label}. Refresh to see changes.`;
-      } catch (err) {
-        unlabeledStatus.textContent = `Failed to assign ${folder}.`;
-      } finally {
-        form.querySelectorAll("button").forEach((btn) => (btn.disabled = false));
-      }
-    });
-  });
-
-  document.querySelectorAll(".delete-btn").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const article = button.closest("article");
-      const folder = article.dataset.folder;
-      button.disabled = true;
-      try {
-        const res = await fetch(`/api/unlabeled/${folder}/delete`, { method: "POST" });
-        if (!res.ok) throw new Error("request failed");
-        unlabeledStatus.textContent = `Deleted ${folder}. Refresh to see changes.`;
-      } catch (err) {
-        unlabeledStatus.textContent = `Failed to delete ${folder}.`;
-      } finally {
-        button.disabled = false;
-      }
-    });
-  });
 </script>
 {% endblock %}

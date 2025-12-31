@@ -12,6 +12,7 @@
         <strong>{{ clip.summary.highlight_label or "Unknown" }}</strong>
         <small>{{ clip.size_mb }} MB</small>
       </header>
+      <video controls preload="metadata" src="/clips/recognized/{{ clip.path }}"></video>
       {% if clip.summary %}
       {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
       {% set recognized_total = clip.summary.get("recognized_total", clip.summary.get("recognized", 0)) %}
@@ -23,7 +24,7 @@
         <button type="submit">Move</button>
       </form>
       <div class="actions">
-        <a href="/clips/recognized/{{ clip.path }}" target="_blank">Download</a>
+        <a href="/clips/recognized/{{ clip.path }}" target="_blank">View Clip</a>
         <button type="button" class="delete-clip danger">Delete</button>
       </div>
     </article>
@@ -42,6 +43,7 @@
         <strong>Unknown</strong>
         <small>{{ clip.size_mb }} MB</small>
       </header>
+      <video controls preload="metadata" src="/clips/unknown/{{ clip.path }}"></video>
       {% if clip.summary %}
       {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
       <p>{{ detections }} detections</p>
@@ -52,7 +54,7 @@
         <button type="submit">Assign Label</button>
       </form>
       <div class="actions">
-        <a href="/clips/unknown/{{ clip.path }}" target="_blank">Download</a>
+        <a href="/clips/unknown/{{ clip.path }}" target="_blank">View Clip</a>
         <button type="button" class="delete-clip danger">Delete</button>
       </div>
     </article>

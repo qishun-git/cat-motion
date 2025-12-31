@@ -17,6 +17,11 @@
       <figure data-label="{{ label }}" data-image="{{ image }}">
         <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
         <figcaption>{{ image }}</figcaption>
+        <form class="assign-training-form">
+          <input type="hidden" name="current_label" value="{{ label }}" />
+          <input type="text" name="new_label" value="{{ label }}" />
+          <button type="submit" class="secondary">Save</button>
+        </form>
         <button type="button" class="delete-training danger">Delete</button>
       </figure>
       {% endfor %}
@@ -51,6 +56,35 @@
       } catch (err) {
         alert("Failed to delete image.");
         btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll(".assign-training-form").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const figure = form.closest("figure");
+      const payload = {
+        current_label: figure.dataset.label,
+        image: figure.dataset.image,
+        new_label: form.querySelector("input[name='new_label']").value.trim(),
+      };
+      if (!payload.new_label) {
+        alert("Label is required.");
+        return;
+      }
+      form.querySelector("button").disabled = true;
+      try {
+        const res = await fetch("/api/training/assign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("failed");
+        location.reload();
+      } catch (err) {
+        alert("Failed to update label.");
+        form.querySelector("button").disabled = false;
       }
     });
   });

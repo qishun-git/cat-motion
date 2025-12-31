@@ -84,6 +84,15 @@ class WebState:
                 labels.append(path.name)
         return labels
 
+    def list_training_images(self) -> Dict[str, List[str]]:
+        entries: Dict[str, List[str]] = {}
+        root = self.paths.training
+        if not root.exists():
+            return entries
+        for label_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+            entries[label_dir.name] = [img.name for img in sorted(label_dir.glob("*.png"))]
+        return entries
+
 
 class ProcessRequest(BaseModel):
     limit: Optional[int] = None
@@ -109,6 +118,12 @@ class TrainingDeleteRequest(BaseModel):
     image: str
 
 
+class TrainingAssignRequest(BaseModel):
+    current_label: str
+    image: str
+    new_label: str
+
+
 def create_app(state: WebState) -> FastAPI:
     fastapi_app = FastAPI(title="Cat Motion Web")
     static_dir = state.paths.static
@@ -127,16 +142,21 @@ def create_app(state: WebState) -> FastAPI:
         recognized = state.list_clips(state.paths.recognized)
         unknown = state.list_clips(state.paths.unknown)
         unlabeled = state.list_unlabeled(state.paths.unlabeled)
+        training_entries = state.list_training_images()
+        recognized_count = len(recognized)
+        unknown_count = len(unknown)
+        unlabeled_count = sum(folder["count"] for folder in unlabeled)
+        training_count = sum(len(images) for images in training_entries.values())
         stream_cfg = state.config.web
         context = {
             "request": request,
-            "recognized": recognized,
-            "unknown": unknown,
-            "unlabeled": unlabeled,
+            "recognized_count": recognized_count,
+            "unknown_count": unknown_count,
+            "unlabeled_count": unlabeled_count,
+            "training_count": training_count,
             "stream_url": stream_cfg.stream_url,
             "stream_port": stream_cfg.stream_port,
             "stream_path": stream_cfg.stream_path,
-            "known_labels": state.known_labels(),
             "active_page": "dashboard",
         }
         return state.templates.TemplateResponse("index.html", context)
@@ -156,11 +176,7 @@ def create_app(state: WebState) -> FastAPI:
 
     @fastapi_app.get("/training", response_class=HTMLResponse)
     async def training_page(request: Request) -> HTMLResponse:
-        entries: Dict[str, List[str]] = {}
-        root = state.paths.training
-        if root.exists():
-            for label_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-                entries[label_dir.name] = [img.name for img in sorted(label_dir.glob("*.png"))]
+        entries = state.list_training_images()
         context = {
             "request": request,
             "training_entries": entries,
@@ -289,6 +305,28 @@ def create_app(state: WebState) -> FastAPI:
             raise HTTPException(status_code=404, detail="Image not found")
         image_path.unlink()
         return JSONResponse({"status": "removed"})
+
+    @fastapi_app.post("/api/training/assign")
+    async def assign_training(payload: TrainingAssignRequest) -> JSONResponse:
+        new_label = payload.new_label.strip()
+        if not new_label:
+            raise HTTPException(status_code=400, detail="Label is required")
+        try:
+            current_dir = safe_join(state.paths.training, payload.current_label)
+            current_path = safe_join(Path(current_dir), payload.image)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid path")
+        current_path = Path(current_path)
+        if not current_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        dest_dir = ensure_dir(state.paths.training / new_label)
+        dest_path = dest_dir / current_path.name
+        counter = 1
+        while dest_path.exists():
+            dest_path = dest_dir / f"{current_path.stem}_{counter}{current_path.suffix}"
+            counter += 1
+        shutil.move(str(current_path), dest_path)
+        return JSONResponse({"status": "assigned"})
 
     return fastapi_app
 
