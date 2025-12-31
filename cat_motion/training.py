@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import cv2
+import numpy as np
 import typer
 from rich.logging import RichHandler
 
@@ -17,6 +18,8 @@ logger = logging.getLogger("cat_motion.training")
 app = typer.Typer(help="Train/update embedding centroids from labeled face crops.")
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png")
+MAX_IMAGES_PER_LABEL = 1000
+SIMILARITY_THRESHOLD = 0.02
 
 
 def _setup_logging(verbose: bool) -> None:
@@ -42,6 +45,65 @@ def _gather_samples(training_dir: Path) -> Dict[str, List[Path]]:
         if images:
             samples[label_dir.name] = images
     return samples
+
+
+def _load_embedding(image_path: Path, face_size: int, extractor: EmbeddingExtractor) -> Optional[np.ndarray]:
+    image = cv2.imread(str(image_path))
+    if image is None:
+        logger.warning("Failed to load %s; skipping.", image_path)
+        return None
+    face = preprocess_face(image, size=(face_size, face_size))
+    return extractor.extract(face)
+
+
+def _dedup_and_cap_label(
+    label: str,
+    images: List[Path],
+    face_size: int,
+    extractor: EmbeddingExtractor,
+) -> List[np.ndarray]:
+    kept: List[Tuple[Path, np.ndarray, float]] = []
+    duplicates_removed = 0
+    for image_path in images:
+        embedding = _load_embedding(image_path, face_size, extractor)
+        if embedding is None:
+            continue
+        is_duplicate = False
+        for _, existing_emb, _ in kept:
+            if float(np.linalg.norm(existing_emb - embedding)) < SIMILARITY_THRESHOLD:
+                is_duplicate = True
+                break
+        if is_duplicate:
+            try:
+                image_path.unlink()
+            except OSError:
+                pass
+            duplicates_removed += 1
+            continue
+        kept.append((image_path, embedding, image_path.stat().st_mtime))
+    if duplicates_removed:
+        logger.info("Removed %s near-duplicate image(s) for %s.", duplicates_removed, label)
+
+    trimmed = 0
+    if len(kept) > MAX_IMAGES_PER_LABEL:
+        kept.sort(key=lambda entry: entry[2])
+        overflow = len(kept) - MAX_IMAGES_PER_LABEL
+        victims = kept[:overflow]
+        for victim_path, _, _ in victims:
+            try:
+                victim_path.unlink()
+            except OSError:
+                pass
+        kept = kept[overflow:]
+        trimmed = len(victims)
+    if trimmed:
+        logger.info(
+            "Trimmed %s old image(s) for %s to enforce %s-image cap.",
+            trimmed,
+            label,
+            MAX_IMAGES_PER_LABEL,
+        )
+    return [embedding for _, embedding, _ in kept]
 
 
 @app.command()
@@ -82,15 +144,17 @@ def run(
             next_label_id += 1
         label_id = label_index[label_name]
         logger.info("Processing %s (%s images)", label_name, len(images))
-        for image_path in images:
-            image = cv2.imread(str(image_path))
-            if image is None:
-                logger.warning("Failed to load %s; skipping.", image_path)
-                continue
-            face = preprocess_face(image, size=(cfg.recognition.face_size, cfg.recognition.face_size))
-            embedding = extractor.extract(face)
-            embeddings.append(embedding)
-            label_ids.append(label_id)
+        label_embeddings = _dedup_and_cap_label(
+            label_name,
+            images,
+            cfg.recognition.face_size,
+            extractor,
+        )
+        if not label_embeddings:
+            logger.warning("No usable embeddings for %s after cleanup; skipping.", label_name)
+            continue
+        embeddings.extend(label_embeddings)
+        label_ids.extend([label_id] * len(label_embeddings))
 
     if not embeddings:
         raise RuntimeError("No embeddings generated; ensure images are readable.")

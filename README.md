@@ -174,7 +174,7 @@ Use `journalctl -u <unit>` or `systemctl status <unit>` to monitor logs. Adjust 
 - Recognized clips automatically promote high-confidence face crops into `data/training/<label>/`.  
 - Unknown clips write per-second crops into `data/unlabeled/<clip>/`.  
 - In the UI, assign unlabeled folders to a label or delete them if they’re junk.  
-- After adding training images, run `cat-motion-train` to regenerate embeddings/labels; recognition is disabled until those files exist.
+- When you run `cat-motion-train`, it now prunes near-duplicate crops and enforces a 1,000-image cap per label (oldest photos deleted first) before rebuilding embeddings. Recognition is disabled until embeddings/labels exist.
 
 ## 7. Web interface
 
