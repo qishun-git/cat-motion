@@ -383,16 +383,23 @@ a {
   margin: 0.15rem 0 0;
 }
 
+.clip-meta-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.clip-meta-actions .btn {
+  padding: 0.5rem 1rem;
+  box-shadow: none;
+}
+
 .clip-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-}
-
-.card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
 }
 
 .form-row {
@@ -452,6 +459,7 @@ figcaption {
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  z-index: 2;
 }
 
 .select-checkbox input {
@@ -542,8 +550,5 @@ figcaption {
   }
   .card {
     padding: 1.5rem;
-  }
-  .card-actions {
-    flex-direction: column;
   }
 }

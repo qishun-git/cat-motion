@@ -26,6 +26,7 @@
       <div class="form-row">
         <input type="text" list="known-labels" class="bulk-label-input" placeholder="Label name" />
         <button type="button" class="btn btn-primary bulk-assign">Assign selected</button>
+        <button type="button" class="btn btn-ghost select-all">Select all</button>
         <button type="button" class="btn btn-secondary clear-selection">Clear</button>
       </div>
       <small class="selection-count muted">0 selected</small>
@@ -92,6 +93,7 @@
     const labelInput = toolbar.querySelector(".bulk-label-input");
     const assignBtn = toolbar.querySelector(".bulk-assign");
     const clearBtn = toolbar.querySelector(".clear-selection");
+    const selectAllBtn = toolbar.querySelector(".select-all");
     const countEl = toolbar.querySelector(".selection-count");
 
     const getCheckboxes = () => Array.from(formWrapper.querySelectorAll(".select-image"));
@@ -109,6 +111,13 @@
     clearBtn.addEventListener("click", () => {
       getCheckboxes().forEach((checkbox) => {
         checkbox.checked = false;
+      });
+      updateCount();
+    });
+
+    selectAllBtn?.addEventListener("click", () => {
+      getCheckboxes().forEach((checkbox) => {
+        checkbox.checked = true;
       });
       updateCount();
     });
