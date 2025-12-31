@@ -7,7 +7,6 @@
   <div>
     <p class="eyebrow">Clips</p>
     <h1>Review processed footage</h1>
-    <p class="muted">Pick a label or the Unknown bucket to load only the clips you need.</p>
   </div>
   <span class="chip warn">{{ recognized_labels | length }} label(s)</span>
 </section>
@@ -17,7 +16,6 @@
     <div>
       <p class="eyebrow">Library</p>
       <h2>Recognized labels</h2>
-      <p class="muted">Choose a label below or open the Unknown bucket.</p>
     </div>
   </div>
   {% if recognized_labels %}
@@ -52,7 +50,6 @@
     <div>
       <p class="eyebrow">Label</p>
       <h2>{{ selected_label }}</h2>
-      <p class="muted">Only clips classified as {{ selected_label }} are shown.</p>
     </div>
   </div>
   {% if clips %}
@@ -105,7 +102,6 @@
     <div>
       <p class="eyebrow">Bucket</p>
       <h2>Unknown clips</h2>
-      <p class="muted">These clips did not match existing embeddings.</p>
     </div>
   </div>
   {% if clips %}

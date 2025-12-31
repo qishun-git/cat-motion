@@ -19,7 +19,7 @@ app = typer.Typer(help="Train/update embedding centroids from labeled face crops
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png")
 MAX_IMAGES_PER_LABEL = 1000
-SIMILARITY_THRESHOLD = 0.02
+SIMILARITY_THRESHOLD = 0.05
 
 
 def _setup_logging(verbose: bool) -> None:
