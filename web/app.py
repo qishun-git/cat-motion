@@ -22,7 +22,6 @@ from cat_motion.utils import safe_join
 from processor.pipeline import ClipProcessor
 
 logger = logging.getLogger("cat_motion.web")
-cli_app = typer.Typer(help="Launch the FastAPI dashboard.")
 
 
 def _setup_logging(verbose: bool) -> None:
@@ -186,7 +185,6 @@ def create_app(state: WebState) -> FastAPI:
     return fastapi_app
 
 
-@cli_app.command("serve")
 def serve(
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     host: Optional[str] = typer.Option(None, "--host", "-h"),
@@ -206,7 +204,7 @@ def serve(
 
 
 def cli() -> None:
-    cli_app()
+    typer.run(serve)
 
 
 state = WebState(load_config())
