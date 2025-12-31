@@ -95,7 +95,7 @@ section {
   color: #1e1b4b;
 }
 
-.unlabeled .reject-btn {
+.unlabeled .delete-btn {
   background: rgba(239, 68, 68, 0.85);
   color: #fff;
 }

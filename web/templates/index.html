@@ -51,7 +51,7 @@
       <form class="assign-form">
         <input name="label" type="text" list="known-labels" placeholder="Label name" autocomplete="off" />
         <button type="submit">Assign</button>
-        <button type="button" class="reject-btn">Reject</button>
+        <button type="button" class="delete-btn">Delete</button>
       </form>
     </article>
     {% else %}
@@ -113,17 +113,17 @@
     });
   });
 
-  document.querySelectorAll(".reject-btn").forEach((button) => {
+  document.querySelectorAll(".delete-btn").forEach((button) => {
     button.addEventListener("click", async () => {
       const article = button.closest("article");
       const folder = article.dataset.folder;
       button.disabled = true;
       try {
-        const res = await fetch(`/api/unlabeled/${folder}/reject`, { method: "POST" });
+        const res = await fetch(`/api/unlabeled/${folder}/delete`, { method: "POST" });
         if (!res.ok) throw new Error("request failed");
-        unlabeledStatus.textContent = `Rejected ${folder}. Refresh to see changes.`;
+        unlabeledStatus.textContent = `Deleted ${folder}. Refresh to see changes.`;
       } catch (err) {
-        unlabeledStatus.textContent = `Failed to reject ${folder}.`;
+        unlabeledStatus.textContent = `Failed to delete ${folder}.`;
       } finally {
         button.disabled = false;
       }

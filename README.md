@@ -6,7 +6,7 @@ Motion-enabled Raspberry Pi pipeline that captures clips, runs cat detection/rec
 
 1. **Motion daemon** – native `motion` service streams the camera and records MP4s when motion is detected.  
 2. **Collector** – watches Motion’s target directory, waits for files to finish writing, copies clips into `data/clips/`, and add JSON sidecars.  
-3. **Processor** – runs YOLO detection + embedding recognition, trims clips, writes summaries, routes output to recognized/unknown folders, exports unlabeled crops, and can write compressed proxies.  
+3. **Processor** – runs YOLO detection + embedding recognition, trims clips, writes summaries, routes output to recognized/unknown folders, and exports unlabeled crops.  
 4. **Web UI** – FastAPI app that shows live stream, clip lists, unlabeled triage cards, and buttons to trigger processing/refresh.  
 5. **Trainer** – CLI that rebuilds embeddings/labels from `data/training/` so the Pi can learn new cats locally.
 
@@ -24,10 +24,8 @@ cat-motion/
     ├── clips/
     ├── recognized_clips/
     ├── unknown_clips/
-    ├── compressed_clips/
     ├── unlabeled/
-    ├── training/
-    └── reject/
+    └── training/
 ```
 
 All Python modules live inside this repo; no external project imports are required.
@@ -65,9 +63,10 @@ Document these values because the collector relies on them.
 
 ## 5. Run the stack
 
-1. **Install**  
+1. **Install** (reuse Pi system packages such as `opencv`/`picamera`)  
    ```bash
-   python -m venv .venv && source .venv/bin/activate
+   python -m venv .venv --system-site-packages
+   source .venv/bin/activate
    pip install -e .
    ```
 2. **Collector** – `cat-motion-collector --config configs/cat_motion.yml` (runs forever; add a systemd unit later).  
@@ -79,7 +78,7 @@ Document these values because the collector relies on them.
 
 - Recognized clips automatically promote high-confidence face crops into `data/training/<label>/`.  
 - Unknown clips write per-second crops into `data/unlabeled/<clip>/`.  
-- In the UI, assign unlabeled folders to a label (moves frames into training) or reject them (moves to `data/reject/`).  
+- In the UI, assign unlabeled folders to a label or delete them if they’re junk.  
 - After adding training images, run `cat-motion-train` to regenerate embeddings/labels; recognition is disabled until those files exist.
 
 ## 7. Web interface
@@ -87,13 +86,13 @@ Document these values because the collector relies on them.
 Features:
 - Live stream embed (MJPEG from Motion).  
 - Recognized/unknown clip cards with file size + JSON summaries.  
-- Mobile-friendly unlabeled triage forms with assign/reject actions.  
+- Mobile-friendly unlabeled triage forms with assign/delete actions.  
 - Buttons to trigger processing and refresh configuration remotely.
 
 ## 8. CLI reference
 
 - `cat-motion-collector` – ingest Motion clips into `data/clips/`.  
-- `cat-motion-processor` – detection + recognition pass, trimming, exports, compression.  
+- `cat-motion-processor` – detection + recognition pass with trimming + exports.  
 - `cat-motion-web serve` – FastAPI dashboard.  
 - `cat-motion-train` – rebuild embedding centroids + label map from `data/training/`.  
 - `CAT_MOTION_CONFIG=/path/to/config.yml` – override config path for any command.

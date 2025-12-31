@@ -27,8 +27,6 @@ processing:
   unlabeled_save_limit: 25
   unlabeled_per_second: true
   trim_clip: true
-  enable_compression: true
-  compression_scale: 0.5
 
 web:
   host: "0.0.0.0"

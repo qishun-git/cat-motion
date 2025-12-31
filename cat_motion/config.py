@@ -57,8 +57,6 @@ class ProcessingConfig(BaseModel):
     unlabeled_save_limit: int = Field(default=25, ge=0)
     unlabeled_per_second: bool = True
     trim_clip: bool = True
-    enable_compression: bool = True
-    compression_scale: float = Field(default=0.5, ge=0.1, le=1.0)
 
 
 class WebConfig(BaseModel):

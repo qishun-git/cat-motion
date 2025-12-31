@@ -175,18 +175,13 @@ def create_app(state: WebState) -> FastAPI:
             pass
         return JSONResponse({"status": "moved", "label": label})
 
-    @fastapi_app.post("/api/unlabeled/{folder}/reject")
-    async def reject_unlabeled(folder: str) -> JSONResponse:
+    @fastapi_app.post("/api/unlabeled/{folder}/delete")
+    async def delete_unlabeled(folder: str) -> JSONResponse:
         src = _unlabeled_folder(folder)
         if not src.exists():
             raise HTTPException(status_code=404, detail="Folder not found")
-        dest = state.paths.reject / src.name
-        counter = 1
-        while dest.exists():
-            dest = state.paths.reject / f"{src.name}_{counter}"
-            counter += 1
-        shutil.move(str(src), dest)
-        return JSONResponse({"status": "rejected"})
+        shutil.rmtree(src)
+        return JSONResponse({"status": "deleted"})
 
     return fastapi_app
 

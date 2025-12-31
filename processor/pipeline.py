@@ -255,9 +255,6 @@ class ClipProcessor:
             self._export_training_frames(result.best_label, result.recognized_samples, dest_clip.stem)
         else:
             self._export_unlabeled_faces(dest_clip.stem, result.detections, result.fps)
-        if self.processing_cfg.enable_compression:
-            self._write_compressed_copy(dest_clip)
-
     def _move_clip_unique(self, clip: Path, dest_dir: Path) -> Path:
         candidate = dest_dir / clip.name
         counter = 1
@@ -308,37 +305,6 @@ class ClipProcessor:
             cv2.imwrite(str(filename), sample.face)
             saved += 1
         logger.info("Saved %s face(s) from %s into %s.", saved, clip_stem, folder)
-
-    def _write_compressed_copy(self, clip_path: Path) -> None:
-        dest_dir = ensure_dir(self.paths.compressed)
-        dest_path = dest_dir / clip_path.name
-        if dest_path.exists():
-            return
-        cap = cv2.VideoCapture(str(clip_path))
-        if not cap.isOpened():
-            return
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        if width == 0 or height == 0:
-            cap.release()
-            return
-        scale = float(self.processing_cfg.compression_scale)
-        new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(str(dest_path), fourcc, fps, new_size)
-        if not writer.isOpened():
-            cap.release()
-            return
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            resized = cv2.resize(frame, new_size, interpolation=cv2.INTER_AREA)
-            writer.write(resized)
-        cap.release()
-        writer.release()
-
 
 def trim_clip_to_range(clip_path: Path, start_frame: int, end_frame: int, fps: float) -> None:
     if start_frame <= 1 and end_frame <= 0:
