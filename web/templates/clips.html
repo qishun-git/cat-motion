@@ -7,27 +7,62 @@
   <div>
     <p class="eyebrow">Clips</p>
     <h1>Review processed footage</h1>
-    <p class="muted">Use the paginated browser below to keep load times fast.</p>
+    <p class="muted">Pick a label or the Unknown bucket to load only the clips you need.</p>
   </div>
-  <span class="chip warn">Recognized page {{ recognized.page }} · Unknown page {{ unknown.page }}</span>
+  <span class="chip warn">{{ recognized_labels | length }} label(s)</span>
 </section>
 
 <section class="card">
   <div class="section-header">
     <div>
       <p class="eyebrow">Library</p>
-      <h2>Recognized clips</h2>
-      <p class="muted">Matched against embeddings. Page through to revisit older captures.</p>
+      <h2>Recognized labels</h2>
+      <p class="muted">Choose a label below or open the Unknown bucket.</p>
     </div>
   </div>
-  {% if recognized.entries %}
+  {% if recognized_labels %}
+  <div class="bucket-list">
+    {% for entry in recognized_labels %}
+    <a
+      class="bucket-row {% if selected_label == entry.name %}is-active{% endif %}"
+      href="{{ request.url.include_query_params(label=entry.name, category=None, page=1) }}"
+    >
+      <span>{{ entry.name }}</span>
+      <span class="badge">{{ entry.count }} clip(s)</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="card-empty">No recognized clips yet.</p>
+  {% endif %}
+  <div class="bucket-list" style="margin-top: 1.5rem">
+    <a
+      class="bucket-row {% if show_unknown %}is-active{% endif %}"
+      href="{{ request.url.include_query_params(category='unknown', label=None, page=1) }}"
+    >
+      <span>Unknown bucket</span>
+      <span class="badge">{{ unknown_count }} clip(s)</span>
+    </a>
+  </div>
+</section>
+
+{% if selected_label %}
+<section class="card" data-category="recognized">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Label</p>
+      <h2>{{ selected_label }}</h2>
+      <p class="muted">Only clips classified as {{ selected_label }} are shown.</p>
+    </div>
+  </div>
+  {% if clips %}
   <div class="clip-grid">
-    {% for clip in recognized.entries %}
-    <article class="clip-card" data-category="recognized" data-clip="{{ clip.path }}">
+    {% for clip in clips %}
+    <article class="clip-card" data-category="recognized" data-clip="{{ selected_label }}/{{ clip.path }}">
       <div class="clip-meta">
         <div>
           <p class="eyebrow">Label</p>
-          <h3>{{ clip.summary.highlight_label or "Unknown" }}</h3>
+          <h3>{{ selected_label }}</h3>
         </div>
         <div class="clip-meta-actions">
           <span class="badge">{{ clip.size_mb }} MB</span>
@@ -36,7 +71,7 @@
       </div>
       <div class="media-frame">
         <video controls preload="metadata" playsinline>
-          <source src="/clips/recognized/{{ clip.path }}" type="video/mp4" />
+          <source src="/clips/recognized/{{ selected_label | urlencode }}/{{ clip.path }}" type="video/mp4" />
           Your browser does not support MP4 playback.
         </video>
       </div>
@@ -52,30 +87,30 @@
     {% endfor %}
   </div>
   <div class="pager">
-    {% if recognized.has_prev %}
-    <a class="btn btn-ghost" href="{{ recognized.prev_url or '#' }}">← Previous</a>
+    {% if pagination.has_prev %}
+    <a class="btn btn-ghost" href="{{ pagination.prev_url or '#' }}">← Previous</a>
     {% endif %}
-    <span>Page {{ recognized.page }}</span>
-    {% if recognized.has_next %}
-    <a class="btn btn-ghost" href="{{ recognized.next_url or '#' }}">Next →</a>
+    <span>Page {{ pagination.page }}</span>
+    {% if pagination.has_next %}
+    <a class="btn btn-ghost" href="{{ pagination.next_url or '#' }}">Next →</a>
     {% endif %}
   </div>
   {% else %}
-  <p class="card-empty">No recognized clips yet.</p>
+  <p class="card-empty">No clips for this label.</p>
   {% endif %}
 </section>
-
-<section class="card">
+{% elif show_unknown %}
+<section class="card" data-category="unknown">
   <div class="section-header">
     <div>
-      <p class="eyebrow">Needs attention</p>
+      <p class="eyebrow">Bucket</p>
       <h2>Unknown clips</h2>
-      <p class="muted">Unknown clips are retried on the next processing run. Delete to drop noise.</p>
+      <p class="muted">These clips did not match existing embeddings.</p>
     </div>
   </div>
-  {% if unknown.entries %}
+  {% if clips %}
   <div class="clip-grid">
-    {% for clip in unknown.entries %}
+    {% for clip in clips %}
     <article class="clip-card" data-category="unknown" data-clip="{{ clip.path }}">
       <div class="clip-meta">
         <div>
@@ -103,18 +138,23 @@
     {% endfor %}
   </div>
   <div class="pager">
-    {% if unknown.has_prev %}
-    <a class="btn btn-ghost" href="{{ unknown.prev_url or '#' }}">← Previous</a>
+    {% if pagination.has_prev %}
+    <a class="btn btn-ghost" href="{{ pagination.prev_url or '#' }}">← Previous</a>
     {% endif %}
-    <span>Page {{ unknown.page }}</span>
-    {% if unknown.has_next %}
-    <a class="btn btn-ghost" href="{{ unknown.next_url or '#' }}">Next →</a>
+    <span>Page {{ pagination.page }}</span>
+    {% if pagination.has_next %}
+    <a class="btn btn-ghost" href="{{ pagination.next_url or '#' }}">Next →</a>
     {% endif %}
   </div>
   {% else %}
-  <p class="card-empty">No pending clips.</p>
+  <p class="card-empty">No unknown clips.</p>
   {% endif %}
 </section>
+{% else %}
+<section class="card">
+  <p class="card-empty">Select a label or the Unknown bucket to load clips.</p>
+</section>
+{% endif %}
 
 <script>
   document.querySelectorAll(".delete-clip").forEach((btn) => {

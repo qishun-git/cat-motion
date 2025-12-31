@@ -130,6 +130,17 @@ class WebState:
             images = images[:limit]
         return images
 
+    def list_recognized_labels(self) -> List[Dict[str, object]]:
+        entries: List[Dict[str, object]] = []
+        root = self.paths.recognized
+        if not root.exists():
+            return entries
+        for label_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+            count = sum(1 for _ in label_dir.glob("*.mp4"))
+            if count > 0:
+                entries.append({"name": label_dir.name, "count": count})
+        return entries
+
 
 class ProcessRequest(BaseModel):
     limit: Optional[int] = None
@@ -208,49 +219,56 @@ def create_app(state: WebState) -> FastAPI:
     @fastapi_app.get("/clips", response_class=HTMLResponse)
     async def clips_page(
         request: Request,
-        recognized_page: int = Query(1, alias="recognized_page", ge=1),
-        unknown_page: int = Query(1, alias="unknown_page", ge=1),
+        label: Optional[str] = Query(None),
+        category: Optional[str] = Query(None),
+        page: int = Query(1, ge=1),
     ) -> HTMLResponse:
         per_page = 3
+        recognized_labels = state.list_recognized_labels()
+        valid_labels = {entry["name"] for entry in recognized_labels}
+        selected_label = label if label in valid_labels else None
+        show_unknown = category == "unknown"
+        pagination: Dict[str, object] = {
+            "page": page,
+            "has_prev": False,
+            "has_next": False,
+            "prev_url": None,
+            "next_url": None,
+        }
+        clips: List[Dict[str, object]] = []
 
-        def paginate_clips(root: Path, page: int) -> Dict[str, object]:
-            offset = (page - 1) * per_page
+        def _paginate(root: Path, page_num: int, extra_params: Dict[str, str]) -> None:
+            nonlocal clips, pagination
+            offset = (page_num - 1) * per_page
             entries = state.list_clips(root, limit=per_page + 1, offset=offset)
             has_next = len(entries) > per_page
-            display = entries[:per_page]
-            return {
-                "entries": display,
-                "page": page,
-                "has_prev": page > 1,
+            clips = entries[:per_page]
+            pagination = {
+                "page": page_num,
+                "has_prev": page_num > 1,
                 "has_next": has_next,
-                "next_url": str(
-                    request.url.include_query_params(
-                        **{
-                            "recognized_page": page + 1 if root == state.paths.recognized else recognized_page,
-                            "unknown_page": page + 1 if root == state.paths.unknown else unknown_page,
-                        }
-                    )
-                )
-                if has_next
+                "prev_url": str(request.url.include_query_params(**extra_params, page=page_num - 1))
+                if page_num > 1
                 else None,
-                "prev_url": str(
-                    request.url.include_query_params(
-                        **{
-                            "recognized_page": page - 1 if root == state.paths.recognized else recognized_page,
-                            "unknown_page": page - 1 if root == state.paths.unknown else unknown_page,
-                        }
-                    )
-                )
-                if page > 1
+                "next_url": str(request.url.include_query_params(**extra_params, page=page_num + 1))
+                if has_next
                 else None,
             }
 
-        recognized = paginate_clips(state.paths.recognized, recognized_page)
-        unknown = paginate_clips(state.paths.unknown, unknown_page)
+        if selected_label:
+            root = state.paths.recognized / selected_label
+            _paginate(root, page, {"label": selected_label})
+        elif show_unknown:
+            _paginate(state.paths.unknown, page, {"category": "unknown"})
+
         context = {
             "request": request,
-            "recognized": recognized,
-            "unknown": unknown,
+            "recognized_labels": recognized_labels,
+            "selected_label": selected_label,
+            "show_unknown": show_unknown,
+            "clips": clips,
+            "pagination": pagination,
+            "unknown_count": state.count_clips(state.paths.unknown),
             "active_page": "clips",
         }
         return state.templates.TemplateResponse("clips.html", context)

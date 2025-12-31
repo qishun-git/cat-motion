@@ -470,6 +470,11 @@ figcaption {
   transform: translateY(-1px);
 }
 
+.bucket-row.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .select-checkbox {
   position: absolute;
   top: 1rem;
