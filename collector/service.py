@@ -138,8 +138,13 @@ class MotionClipCollector:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         if dest_path.exists():
             logger.debug("Destination %s already exists; skipping copy.", dest_path)
+            self._remove_source(source)
             return
-        shutil.copy2(source, dest_path)
+        try:
+            shutil.copy2(source, dest_path)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to copy %s -> %s: %s", source, dest_path, exc)
+            return
         sidecar = dest_path.with_suffix(dest_path.suffix + ".json")
         payload = {
             "source": str(source),
@@ -149,6 +154,16 @@ class MotionClipCollector:
         }
         sidecar.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         logger.info("Copied %s -> %s", source.name, dest_path.name)
+        self._remove_source(source)
+
+    def _remove_source(self, source: Path) -> None:
+        try:
+            source.unlink()
+            logger.debug("Removed source clip %s", source)
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            logger.warning("Failed to remove source clip %s: %s", source, exc)
 
 
 class _MotionEventHandler(FileSystemEventHandler):
