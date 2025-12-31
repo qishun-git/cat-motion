@@ -80,7 +80,6 @@ class MailConfig(BaseModel):
 
 
 class AuthConfig(BaseModel):
-    secret_key: str = Field(..., min_length=16)
     allowed_emails: List[str] = Field(default_factory=list)
     token_ttl_minutes: int = Field(default=15, ge=1)
     session_ttl_hours: int = Field(default=168, ge=1)  # seven days by default
@@ -95,7 +94,6 @@ class AuthConfig(BaseModel):
         if isinstance(value, str):
             value = [value]
         return [str(item).strip().lower() for item in value if str(item).strip()]
-
 
 class AppConfig(BaseModel):
     base_dir: Path = Path(".")

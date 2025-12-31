@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Literal, Optional
 from urllib.parse import quote, urlparse
+import secrets
 
 import typer
 import uvicorn
@@ -42,7 +43,9 @@ class WebState:
         self.config = config
         self.paths = config.paths()
         self.templates = Jinja2Templates(directory=str(self.paths.templates))
-        self.auth = MagicLinkAuth(config.auth)
+        secret = secrets.token_urlsafe(32)
+        logger.info("Generated auth secret for this web session.")
+        self.auth = MagicLinkAuth(self.config.auth, secret)
 
     def refresh(self) -> None:
         self.__init__(load_config())

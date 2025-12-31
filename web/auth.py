@@ -21,11 +21,12 @@ def _normalize_email(email: str) -> str:
 
 
 class MagicLinkAuth:
-    def __init__(self, config: AuthConfig) -> None:
+    def __init__(self, config: AuthConfig, secret: str) -> None:
         self.config = config
+        self._secret = secret
         self._allowed = {_normalize_email(addr) for addr in config.allowed_emails}
-        self._login_serializer = URLSafeTimedSerializer(config.secret_key, salt=LOGIN_SALT)
-        self._session_serializer = URLSafeTimedSerializer(config.secret_key, salt=SESSION_SALT)
+        self._login_serializer = URLSafeTimedSerializer(secret, salt=LOGIN_SALT)
+        self._session_serializer = URLSafeTimedSerializer(secret, salt=SESSION_SALT)
 
     def is_allowed(self, email: str) -> bool:
         return _normalize_email(email) in self._allowed

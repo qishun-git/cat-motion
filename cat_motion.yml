@@ -35,7 +35,6 @@ web:
   stream_path: "/?action=stream"
 
 auth:
-  secret_key: "change-me-super-secret-key"
   allowed_emails:
     - "you@example.com"
   token_ttl_minutes: 15

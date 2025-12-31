@@ -60,7 +60,7 @@ Document these values because the collector relies on them.
   - `recognition.embeddings/labels` = outputs created by `cat-motion-train`.  
   - `processing` settings = frame stride, detection interval, trimming, unlabeled export behavior.  
   - `web.stream_url` (optional) – leave empty to auto-build a URL using the dashboard host + `web.stream_port`.  
-  - `auth` block – set a long `secret_key`, SMTP credentials, and the list of `allowed_emails` that can log in.  
+  - `auth` block – provide SMTP credentials and list the `allowed_emails` that can log in.  
 - Point `CAT_MOTION_CONFIG` at your YAML file (or use `--config` on every CLI).
 
 ## 5. Run the stack
@@ -190,11 +190,11 @@ Features:
 
 ## 8. Authentication flow
 
-1. Generate a long `auth.secret_key` (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).  
-2. Configure `auth.mail` with an SMTP server that can deliver outbound mail from the Pi (Gmail app passwords work, or a local postfix relay).  
-3. Add every allowed operator email to `auth.allowed_emails`. Unknown addresses are rejected before an email is sent.  
-4. When you browse to the dashboard you’ll see the login form. Enter an allowed email → check your inbox for the one-time link → click it to establish a cookie-backed session (default lifetime: 7 days). The login link is built from the host you used to reach the login page, so no extra config is required.  
-5. Use the “Log out” button in the header to clear the cookie immediately on any device.
+1. Configure `auth.mail` with an SMTP server that can deliver outbound mail from the Pi (Gmail app passwords work, or a local postfix relay).  
+2. Add every allowed operator email to `auth.allowed_emails`. Unknown addresses are rejected before an email is sent.  
+3. When you browse to the dashboard you’ll see the login form. Enter an allowed email → check your inbox for the one-time link → click it to establish a cookie-backed session (default lifetime: 7 days). The login link is built from the host you used to reach the login page, so no extra config is required.  
+4. Use the “Log out” button in the header to clear the cookie immediately on any device.  
+5. Restarting the web service rotates the secret automatically, which invalidates existing sessions—log in again via email.
 
 ## 9. CLI reference
 
