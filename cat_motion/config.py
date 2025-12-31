@@ -105,8 +105,19 @@ def load_config(explicit_path: Optional[Path] = None) -> AppConfig:
         if env_path:
             candidate = Path(env_path)
     if candidate is None:
-        candidate = Path("configs/cat_motion.yml")
+        default_candidate = Path("configs/cat_motion.yml")
+        if not default_candidate.exists():
+            repo_default = Path(__file__).resolve().parent.parent / "configs" / "cat_motion.yml"
+            candidate = repo_default if repo_default.exists() else default_candidate
+        else:
+            candidate = default_candidate
     data = _load_from_file(candidate) if candidate.exists() else {}
-    base_dir = data.get("base_dir") or os.environ.get("CAT_MOTION_BASE", ".")
-    data["base_dir"] = str(Path(base_dir).resolve())
+    raw_base_dir = data.get("base_dir") or os.environ.get("CAT_MOTION_BASE", ".")
+    base_path = Path(raw_base_dir)
+    if not base_path.is_absolute():
+        base_root = candidate.parent if candidate else Path.cwd()
+        base_path = (base_root / base_path).resolve()
+    else:
+        base_path = base_path.resolve()
+    data["base_dir"] = str(base_path)
     return AppConfig(**data)
