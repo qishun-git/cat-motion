@@ -448,6 +448,28 @@ figcaption {
   font-size: 0.85rem;
 }
 
+.bucket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bucket-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.8);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.bucket-row:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
 .select-checkbox {
   position: absolute;
   top: 1rem;
@@ -497,6 +519,20 @@ figcaption {
 }
 
 .muted {
+  color: var(--muted);
+}
+
+.pager {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pager span {
+  font-weight: 600;
   color: var(--muted);
 }
 

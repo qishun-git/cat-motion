@@ -10,7 +10,7 @@
     <p class="muted">Adjust labels, clean noisy captures, and keep embeddings fresh.</p>
   </div>
   <div>
-    <span class="chip">{{ training_entries | length }} label group(s)</span>
+    <span class="chip">{{ labels | length }} label group(s)</span>
     <div class="hero-actions" style="margin-top: 0.5rem">
       <button type="button" class="btn btn-primary" id="train-btn">Train embeddings</button>
       <small class="muted" id="train-status"></small>
@@ -18,49 +18,82 @@
   </div>
 </section>
 
-{% if training_entries %}
-  {% for label, images in training_entries.items() %}
-  <section class="card" data-label="{{ label }}">
-    <div class="section-header">
-      <div>
-        <p class="eyebrow">Label</p>
-        <h2>{{ label }}</h2>
+<section class="card">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Labels</p>
+      <h2>Available datasets</h2>
+      <p class="muted">Select a label to manage its images.</p>
+    </div>
+  </div>
+  {% if labels %}
+  <div class="bucket-list">
+    {% for entry in labels %}
+    <a class="bucket-row" href="{{ request.url.include_query_params(label=entry.name, page=1) }}">
+      <span>{{ entry.name }}</span>
+      <span class="badge">{{ entry.count }} image(s)</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="card-empty">No labeled images yet.</p>
+  {% endif %}
+</section>
+
+{% if selected_label %}
+<section class="card" data-label="{{ selected_label }}">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Label</p>
+      <h2>{{ selected_label }}</h2>
+    </div>
+    <span class="badge">{{ selected_images | length }} image(s)</span>
+  </div>
+  {% if selected_images %}
+  <div class="gallery-toolbar" data-label="{{ selected_label }}">
+    <div class="form-row">
+      <button type="button" class="btn btn-danger bulk-delete">Delete selected</button>
+      <button type="button" class="btn btn-ghost select-all">Select all</button>
+      <button type="button" class="btn btn-secondary clear-selection">Clear</button>
+    </div>
+    <small class="selection-count muted">0 selected</small>
+  </div>
+  <div class="gallery-grid">
+    {% for image in selected_images %}
+    <figure class="media-card" data-label="{{ selected_label }}" data-image="{{ image }}">
+      <label class="select-checkbox">
+        <input type="checkbox" class="select-image" />
+        <span></span>
+      </label>
+      <div class="media-frame media-frame--preview">
+        <img src="/training/{{ selected_label | urlencode }}/{{ image | urlencode }}" alt="{{ selected_label }}" />
       </div>
-      <span class="badge">{{ images | length }} image(s)</span>
-    </div>
-    <div class="gallery-toolbar" data-label="{{ label }}">
-      <div class="form-row">
-        <button type="button" class="btn btn-danger bulk-delete">Delete selected</button>
-        <button type="button" class="btn btn-ghost select-all">Select all</button>
-        <button type="button" class="btn btn-secondary clear-selection">Clear</button>
-      </div>
-      <small class="selection-count muted">0 selected</small>
-    </div>
-    <div class="gallery-grid">
-      {% for image in images %}
-      <figure class="media-card" data-label="{{ label }}" data-image="{{ image }}">
-        <label class="select-checkbox">
-          <input type="checkbox" class="select-image" />
-          <span></span>
-        </label>
-        <div class="media-frame media-frame--preview">
-          <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
-        </div>
-        <figcaption>{{ image }}</figcaption>
-        <form class="form-row assign-training-form">
-          <input type="hidden" name="current_label" value="{{ label }}" />
-          <input type="text" name="new_label" value="{{ label }}" />
-          <button type="submit" class="btn btn-secondary">Save</button>
-        </form>
-        <button type="button" class="btn btn-danger delete-training">Delete</button>
-      </figure>
-      {% endfor %}
-    </div>
-  </section>
-  {% endfor %}
+      <figcaption>{{ image }}</figcaption>
+      <form class="form-row assign-training-form">
+        <input type="hidden" name="current_label" value="{{ selected_label }}" />
+        <input type="text" name="new_label" value="{{ selected_label }}" />
+        <button type="submit" class="btn btn-secondary">Save</button>
+      </form>
+      <button type="button" class="btn btn-danger delete-training">Delete</button>
+    </figure>
+    {% endfor %}
+  </div>
+  <div class="pager">
+    {% if pagination.has_prev %}
+    <a class="btn btn-ghost" href="{{ pagination.prev_url or '#' }}">← Previous</a>
+    {% endif %}
+    <span>Page {{ pagination.page }}</span>
+    {% if pagination.has_next %}
+    <a class="btn btn-ghost" href="{{ pagination.next_url or '#' }}">Next →</a>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="card-empty">No images for this label.</p>
+  {% endif %}
+</section>
 {% else %}
 <section class="card">
-  <p class="card-empty">No training images yet.</p>
+  <p class="card-empty">Select a label to view images.</p>
 </section>
 {% endif %}
 

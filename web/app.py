@@ -9,7 +9,7 @@ from typing import Dict, List, Literal, Optional
 
 import typer
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -18,9 +18,9 @@ from rich.logging import RichHandler
 
 from cat_motion import AppConfig, load_config
 from cat_motion.paths import ensure_dir
+from cat_motion.training import run as train_embeddings_run
 from cat_motion.utils import safe_join
 from processor.pipeline import ClipProcessor
-from cat_motion.training import run as train_embeddings_run
 
 logger = logging.getLogger("cat_motion.web")
 
@@ -44,11 +44,15 @@ class WebState:
     def refresh(self) -> None:
         self.__init__(load_config())
 
-    def list_clips(self, root: Path, limit: int = 50) -> List[Dict[str, object]]:
+    def list_clips(self, root: Path, limit: Optional[int] = 50, offset: int = 0) -> List[Dict[str, object]]:
         clips: List[Dict[str, object]] = []
         if not root.exists():
             return clips
-        for clip in sorted(root.glob("**/*.mp4"), reverse=True)[:limit]:
+        skipped = 0
+        for clip in sorted(root.glob("**/*.mp4"), reverse=True):
+            if skipped < offset:
+                skipped += 1
+                continue
             sidecar = clip.with_suffix(clip.suffix + ".json")
             summary: Optional[Dict[str, object]] = None
             if sidecar.exists():
@@ -63,47 +67,68 @@ class WebState:
                     "summary": summary,
                 }
             )
+            if limit is not None and len(clips) >= limit:
+                break
         return clips
 
-    def list_unlabeled_folders(self, root: Path) -> List[Dict[str, object]]:
-        entries: List[Dict[str, object]] = []
+    def count_clips(self, root: Path) -> int:
         if not root.exists():
-            return entries
-        for folder in sorted(p for p in root.iterdir() if p.is_dir()):
-            entries.append(
-                {
-                    "name": folder.name,
-                    "count": sum(1 for _ in folder.glob("*")),
-                }
-            )
-        return entries
+            return 0
+        return sum(1 for _ in root.glob("**/*.mp4"))
 
-    def list_unlabeled_images(self) -> Dict[str, List[str]]:
-        entries: Dict[str, List[str]] = {}
+    def list_unlabeled_buckets(self) -> List[Dict[str, object]]:
+        entries: List[Dict[str, object]] = []
         root = self.paths.unlabeled
         if not root.exists():
             return entries
         for folder in sorted(p for p in root.iterdir() if p.is_dir()):
-            images = [img.name for img in sorted(folder.glob("*.png"))]
-            if images:
-                entries[folder.name] = images
+            count = sum(1 for _ in folder.glob("*.png"))
+            if count > 0:
+                entries.append({"name": folder.name, "count": count})
         return entries
+
+    def list_unlabeled_images(self, folder: str, limit: Optional[int] = None, offset: int = 0) -> List[str]:
+        root = self.paths.unlabeled / folder
+        if not root.exists():
+            return []
+        images = sorted(img.name for img in root.glob("*.png"))
+        if offset:
+            images = images[offset:]
+        if limit is not None:
+            images = images[:limit]
+        return images
 
     def known_labels(self) -> List[str]:
         labels: List[str] = []
-        for path in sorted(self.paths.training.iterdir()):
+        root = self.paths.training
+        if not root.exists():
+            return labels
+        for path in sorted(root.iterdir()):
             if path.is_dir():
                 labels.append(path.name)
         return labels
 
-    def list_training_images(self) -> Dict[str, List[str]]:
-        entries: Dict[str, List[str]] = {}
+    def list_training_labels(self) -> List[Dict[str, object]]:
+        entries: List[Dict[str, object]] = []
         root = self.paths.training
         if not root.exists():
             return entries
         for label_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-            entries[label_dir.name] = [img.name for img in sorted(label_dir.glob("*.png"))]
+            count = sum(1 for _ in label_dir.glob("*.png"))
+            if count > 0:
+                entries.append({"name": label_dir.name, "count": count})
         return entries
+
+    def list_training_images(self, label: str, limit: Optional[int] = None, offset: int = 0) -> List[str]:
+        target = self.paths.training / label
+        if not target.exists():
+            return []
+        images = sorted(img.name for img in target.glob("*.png"))
+        if offset:
+            images = images[offset:]
+        if limit is not None:
+            images = images[:limit]
+        return images
 
 
 class ProcessRequest(BaseModel):
@@ -160,12 +185,12 @@ def create_app(state: WebState) -> FastAPI:
 
     @fastapi_app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
-        recognized_count = len(state.list_clips(state.paths.recognized))
-        unknown_count = len(state.list_clips(state.paths.unknown))
-        unlabeled_images = state.list_unlabeled_images()
-        unlabeled_count = sum(len(images) for images in unlabeled_images.values())
-        training_entries = state.list_training_images()
-        training_count = sum(len(images) for images in training_entries.values())
+        recognized_count = state.count_clips(state.paths.recognized)
+        unknown_count = state.count_clips(state.paths.unknown)
+        unlabeled_buckets = state.list_unlabeled_buckets()
+        unlabeled_count = sum(bucket["count"] for bucket in unlabeled_buckets)
+        training_labels = state.list_training_labels()
+        training_count = sum(label["count"] for label in training_labels)
         stream_cfg = state.config.web
         context = {
             "request": request,
@@ -181,35 +206,126 @@ def create_app(state: WebState) -> FastAPI:
         return state.templates.TemplateResponse("index.html", context)
 
     @fastapi_app.get("/clips", response_class=HTMLResponse)
-    async def clips_page(request: Request) -> HTMLResponse:
-        recognized = state.list_clips(state.paths.recognized, limit=200)
-        unknown = state.list_clips(state.paths.unknown, limit=200)
+    async def clips_page(
+        request: Request,
+        recognized_page: int = Query(1, alias="recognized_page", ge=1),
+        unknown_page: int = Query(1, alias="unknown_page", ge=1),
+    ) -> HTMLResponse:
+        per_page = 12
+
+        def paginate_clips(root: Path, page: int) -> Dict[str, object]:
+            offset = (page - 1) * per_page
+            entries = state.list_clips(root, limit=per_page + 1, offset=offset)
+            has_next = len(entries) > per_page
+            display = entries[:per_page]
+            return {
+                "items": display,
+                "page": page,
+                "has_prev": page > 1,
+                "has_next": has_next,
+                "next_url": str(
+                    request.url.include_query_params(
+                        **{
+                            "recognized_page": page + 1 if root == state.paths.recognized else recognized_page,
+                            "unknown_page": page + 1 if root == state.paths.unknown else unknown_page,
+                        }
+                    )
+                )
+                if has_next
+                else None,
+                "prev_url": str(
+                    request.url.include_query_params(
+                        **{
+                            "recognized_page": page - 1 if root == state.paths.recognized else recognized_page,
+                            "unknown_page": page - 1 if root == state.paths.unknown else unknown_page,
+                        }
+                    )
+                )
+                if page > 1
+                else None,
+            }
+
+        recognized = paginate_clips(state.paths.recognized, recognized_page)
+        unknown = paginate_clips(state.paths.unknown, unknown_page)
         context = {
             "request": request,
             "recognized": recognized,
             "unknown": unknown,
-            "known_labels": state.known_labels(),
             "active_page": "clips",
         }
         return state.templates.TemplateResponse("clips.html", context)
 
     @fastapi_app.get("/unlabeled", response_class=HTMLResponse)
-    async def unlabeled_page(request: Request) -> HTMLResponse:
-        entries = state.list_unlabeled_images()
+    async def unlabeled_page(
+        request: Request,
+        folder: Optional[str] = Query(None),
+        page: int = Query(1, ge=1),
+    ) -> HTMLResponse:
+        buckets = state.list_unlabeled_buckets()
+        per_page = 24
+        selected_images: List[str] = []
+        pagination: Dict[str, object] = {
+            "page": page,
+            "has_prev": False,
+            "has_next": False,
+            "prev_url": None,
+            "next_url": None,
+        }
+        if folder:
+            offset = (page - 1) * per_page
+            entries = state.list_unlabeled_images(folder, limit=per_page + 1, offset=offset)
+            has_next = len(entries) > per_page
+            selected_images = entries[:per_page]
+            pagination["has_prev"] = page > 1
+            pagination["has_next"] = has_next
+            if has_next:
+                pagination["next_url"] = str(request.url.include_query_params(folder=folder, page=page + 1))
+            if page > 1:
+                pagination["prev_url"] = str(request.url.include_query_params(folder=folder, page=page - 1))
         context = {
             "request": request,
-            "unlabeled_entries": entries,
+            "buckets": buckets,
+            "selected_folder": folder,
+            "selected_images": selected_images,
+            "pagination": pagination,
             "known_labels": state.known_labels(),
             "active_page": "unlabeled",
         }
         return state.templates.TemplateResponse("unlabeled.html", context)
 
     @fastapi_app.get("/training", response_class=HTMLResponse)
-    async def training_page(request: Request) -> HTMLResponse:
-        entries = state.list_training_images()
+    async def training_page(
+        request: Request,
+        label: Optional[str] = Query(None),
+        page: int = Query(1, ge=1),
+    ) -> HTMLResponse:
+        labels = state.list_training_labels()
+        per_page = 24
+        selected_images: List[str] = []
+        pagination: Dict[str, object] = {
+            "page": page,
+            "has_prev": False,
+            "has_next": False,
+            "prev_url": None,
+            "next_url": None,
+        }
+        if label:
+            offset = (page - 1) * per_page
+            entries = state.list_training_images(label, limit=per_page + 1, offset=offset)
+            has_next = len(entries) > per_page
+            selected_images = entries[:per_page]
+            pagination["has_prev"] = page > 1
+            pagination["has_next"] = has_next
+            if has_next:
+                pagination["next_url"] = str(request.url.include_query_params(label=label, page=page + 1))
+            if page > 1:
+                pagination["prev_url"] = str(request.url.include_query_params(label=label, page=page - 1))
         context = {
             "request": request,
-            "training_entries": entries,
+            "labels": labels,
+            "selected_label": label,
+            "selected_images": selected_images,
+            "pagination": pagination,
             "active_page": "training",
         }
         return state.templates.TemplateResponse("training.html", context)
@@ -226,9 +342,13 @@ def create_app(state: WebState) -> FastAPI:
         return FileResponse(target)
 
     @fastapi_app.get("/api/clips/{category}")
-    async def clips(category: str) -> List[Dict[str, object]]:
+    async def clips(
+        category: str,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=200),
+    ) -> List[Dict[str, object]]:
         root = _category_root(category)
-        return state.list_clips(root, limit=200)
+        return state.list_clips(root, limit=limit, offset=offset)
 
     @fastapi_app.get("/clips/{category}/{clip_path:path}")
     async def download_clip(category: str, clip_path: str) -> FileResponse:

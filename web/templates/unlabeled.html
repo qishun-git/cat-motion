@@ -9,56 +9,90 @@
     <h1>Triage captured frames</h1>
     <p class="muted">Label key frames or drop noise before exporting to training.</p>
   </div>
-  <span class="chip warn">{{ unlabeled_entries | length }} bucket(s)</span>
+  <span class="chip warn">{{ buckets | length }} bucket(s)</span>
 </section>
 
-{% if unlabeled_entries %}
-  {% for folder, images in unlabeled_entries.items() %}
-  <section class="card" data-folder="{{ folder }}">
-    <div class="section-header">
-      <div>
-        <p class="eyebrow">Bucket</p>
-        <h2>{{ folder }}</h2>
-      </div>
-      <span class="badge">{{ images | length }} image(s)</span>
+<section class="card">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Buckets</p>
+      <h2>Motion exports</h2>
+      <p class="muted">Select a bucket to load its images.</p>
     </div>
-    <div class="gallery-toolbar" data-folder="{{ folder }}">
-      <div class="form-row">
-        <input type="text" list="known-labels" class="bulk-label-input" placeholder="Label name" />
-        <button type="button" class="btn btn-primary bulk-assign">Assign selected</button>
-        <button type="button" class="btn btn-danger bulk-delete">Delete selected</button>
-        <button type="button" class="btn btn-ghost select-all">Select all</button>
-        <button type="button" class="btn btn-secondary clear-selection">Clear</button>
-      </div>
-      <small class="selection-count muted">0 selected</small>
-    </div>
-    <div class="gallery-grid">
-      {% for image in images %}
-      <figure class="media-card" data-folder="{{ folder }}" data-image="{{ image }}">
-        <label class="select-checkbox">
-          <input type="checkbox" class="select-image" />
-          <span></span>
-        </label>
-        <div class="media-frame media-frame--preview">
-          <img src="/unlabeled/{{ folder | urlencode }}/{{ image | urlencode }}" alt="{{ folder }}" />
-        </div>
-        <figcaption>{{ image }}</figcaption>
-        <button type="button" class="btn btn-danger delete-unlabeled">Delete</button>
-      </figure>
-      {% endfor %}
-    </div>
-  </section>
-  {% endfor %}
-  <datalist id="known-labels">
-    {% for label in known_labels %}
-    <option value="{{ label }}"></option>
+  </div>
+  {% if buckets %}
+  <div class="bucket-list">
+    {% for bucket in buckets %}
+    <a class="bucket-row" href="{{ request.url.include_query_params(folder=bucket.name, page=1) }}">
+      <span>{{ bucket.name }}</span>
+      <span class="badge">{{ bucket.count }} image(s)</span>
+    </a>
     {% endfor %}
-  </datalist>
+  </div>
+  {% else %}
+  <p class="card-empty">No buckets available.</p>
+  {% endif %}
+</section>
+
+{% if selected_folder %}
+<section class="card" data-folder="{{ selected_folder }}">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Bucket</p>
+      <h2>{{ selected_folder }}</h2>
+    </div>
+    <span class="badge">{{ selected_images | length }} image(s)</span>
+  </div>
+  {% if selected_images %}
+  <div class="gallery-toolbar" data-folder="{{ selected_folder }}">
+    <div class="form-row">
+      <input type="text" list="known-labels" class="bulk-label-input" placeholder="Label name" />
+      <button type="button" class="btn btn-primary bulk-assign">Assign selected</button>
+      <button type="button" class="btn btn-danger bulk-delete">Delete selected</button>
+      <button type="button" class="btn btn-ghost select-all">Select all</button>
+      <button type="button" class="btn btn-secondary clear-selection">Clear</button>
+    </div>
+    <small class="selection-count muted">0 selected</small>
+  </div>
+  <div class="gallery-grid">
+    {% for image in selected_images %}
+    <figure class="media-card" data-folder="{{ selected_folder }}" data-image="{{ image }}">
+      <label class="select-checkbox">
+        <input type="checkbox" class="select-image" />
+        <span></span>
+      </label>
+      <div class="media-frame media-frame--preview">
+        <img src="/unlabeled/{{ selected_folder | urlencode }}/{{ image | urlencode }}" alt="{{ selected_folder }}" />
+      </div>
+      <figcaption>{{ image }}</figcaption>
+      <button type="button" class="btn btn-danger delete-unlabeled">Delete</button>
+    </figure>
+    {% endfor %}
+  </div>
+  <div class="pager">
+    {% if pagination.has_prev %}
+    <a class="btn btn-ghost" href="{{ pagination.prev_url or '#' }}">← Previous</a>
+    {% endif %}
+    <span>Page {{ pagination.page }}</span>
+    {% if pagination.has_next %}
+    <a class="btn btn-ghost" href="{{ pagination.next_url or '#' }}">Next →</a>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="card-empty">Bucket is empty.</p>
+  {% endif %}
+</section>
 {% else %}
 <section class="card">
-  <p class="card-empty">No unlabeled images available.</p>
+  <p class="card-empty">Select a bucket to begin.</p>
 </section>
 {% endif %}
+
+<datalist id="known-labels">
+  {% for label in known_labels %}
+  <option value="{{ label }}"></option>
+  {% endfor %}
+</datalist>
 
 <script>
   const removeCardIfEmpty = (figure) => {

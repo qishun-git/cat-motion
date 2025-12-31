@@ -7,9 +7,9 @@
   <div>
     <p class="eyebrow">Clips</p>
     <h1>Review processed footage</h1>
-    <p class="muted">Label unknown segments, tidy up recognized ones, and keep storage lean.</p>
+    <p class="muted">Use the paginated browser below to keep load times fast.</p>
   </div>
-  <span class="chip warn">{{ recognized | length + unknown | length }} clip(s) loaded</span>
+  <span class="chip warn">Recognized page {{ recognized.page }} · Unknown page {{ unknown.page }}</span>
 </section>
 
 <section class="card">
@@ -17,13 +17,12 @@
     <div>
       <p class="eyebrow">Library</p>
       <h2>Recognized clips</h2>
-      <p class="muted">Matched against embeddings. Tweak labels or archive them.</p>
+      <p class="muted">Matched against embeddings. Page through to revisit older captures.</p>
     </div>
-    <span class="badge">{{ recognized | length }}</span>
   </div>
-  {% if recognized %}
+  {% if recognized.items %}
   <div class="clip-grid">
-    {% for clip in recognized %}
+    {% for clip in recognized.items %}
     <article class="clip-card" data-category="recognized" data-clip="{{ clip.path }}">
       <div class="clip-meta">
         <div>
@@ -49,6 +48,15 @@
     </article>
     {% endfor %}
   </div>
+  <div class="pager">
+    {% if recognized.has_prev %}
+    <a class="btn btn-ghost" href="{{ recognized.prev_url or '#' }}">← Previous</a>
+    {% endif %}
+    <span>Page {{ recognized.page }}</span>
+    {% if recognized.has_next %}
+    <a class="btn btn-ghost" href="{{ recognized.next_url or '#' }}">Next →</a>
+    {% endif %}
+  </div>
   {% else %}
   <p class="card-empty">No recognized clips yet.</p>
   {% endif %}
@@ -59,14 +67,12 @@
     <div>
       <p class="eyebrow">Needs attention</p>
       <h2>Unknown clips</h2>
-      <p class="muted">Label anything the recognizer could not match.</p>
+      <p class="muted">Unknown clips are retried on the next processing run. Delete to drop noise.</p>
     </div>
-    <span class="badge">{{ unknown | length }}</span>
   </div>
-  <p class="muted">Unknown clips are retried during the next processing run. You can delete noisy captures below.</p>
-  {% if unknown %}
+  {% if unknown.items %}
   <div class="clip-grid">
-    {% for clip in unknown %}
+    {% for clip in unknown.items %}
     <article class="clip-card" data-category="unknown" data-clip="{{ clip.path }}">
       <div class="clip-meta">
         <div>
@@ -89,6 +95,15 @@
       {% endif %}
     </article>
     {% endfor %}
+  </div>
+  <div class="pager">
+    {% if unknown.has_prev %}
+    <a class="btn btn-ghost" href="{{ unknown.prev_url or '#' }}">← Previous</a>
+    {% endif %}
+    <span>Page {{ unknown.page }}</span>
+    {% if unknown.has_next %}
+    <a class="btn btn-ghost" href="{{ unknown.next_url or '#' }}">Next →</a>
+    {% endif %}
   </div>
   {% else %}
   <p class="card-empty">No pending clips.</p>
