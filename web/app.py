@@ -20,7 +20,7 @@ from cat_motion import AppConfig, load_config
 from cat_motion.paths import ensure_dir
 from cat_motion.utils import safe_join
 from processor.pipeline import ClipProcessor
-from train_embeddings import run as train_embeddings_run
+from cat_motion.training import run as train_embeddings_run
 
 logger = logging.getLogger("cat_motion.web")
 
