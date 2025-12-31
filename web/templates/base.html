@@ -4,44 +4,54 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}Cat Motion{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
-      crossorigin="anonymous"
     />
     <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm">
-      <div class="container-fluid">
-        <a class="navbar-brand fw-semibold" href="/">Cat Motion</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navLinks">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navLinks">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/">Dashboard</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link {% if active_page == 'clips' %}active{% endif %}" href="/clips">Clips</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link {% if active_page == 'unlabeled' %}active{% endif %}" href="/unlabeled">Unlabeled</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link {% if active_page == 'training' %}active{% endif %}" href="/training">Training</a>
-            </li>
-          </ul>
+    <div class="page-shell">
+      <header class="site-header">
+        <div class="header-inner">
+          <a class="logo" href="/">Cat Motion</a>
+          <button class="nav-toggle" type="button" aria-label="Toggle navigation">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <nav class="nav-links">
+            <a class="{% if active_page == 'dashboard' %}is-active{% endif %}" href="/">Dashboard</a>
+            <a class="{% if active_page == 'clips' %}is-active{% endif %}" href="/clips">Clips</a>
+            <a class="{% if active_page == 'unlabeled' %}is-active{% endif %}" href="/unlabeled">Unlabeled</a>
+            <a class="{% if active_page == 'training' %}is-active{% endif %}" href="/training">Training</a>
+          </nav>
         </div>
-      </div>
-    </nav>
-    <main class="container py-4">
-      {% block content %}{% endblock %}
-    </main>
-    <footer class="text-center py-4 text-muted">
-      <small>Pi powered</small>
-    </footer>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+      </header>
+      <main class="page-container">
+        {% block content %}{% endblock %}
+      </main>
+      <footer class="site-footer">
+        <small>Running on Raspberry Pi</small>
+      </footer>
+    </div>
+    <script>
+      const navToggle = document.querySelector(".nav-toggle");
+      const navLinks = document.querySelector(".nav-links");
+      if (navToggle && navLinks) {
+        navToggle.addEventListener("click", () => {
+          navLinks.classList.toggle("open");
+          navToggle.classList.toggle("open");
+        });
+        navLinks.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", () => {
+            navLinks.classList.remove("open");
+            navToggle.classList.remove("open");
+          });
+        });
+      }
+    </script>
   </body>
 </html>

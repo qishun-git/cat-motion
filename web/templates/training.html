@@ -3,35 +3,48 @@
 {% block title %}Training · Cat Motion{% endblock %}
 
 {% block content %}
-<section>
-  <h2>Training Images</h2>
-  {% if training_entries %}
+<section class="page-intro">
+  <div>
+    <p class="eyebrow">Training</p>
+    <h1>Curate your dataset</h1>
+    <p class="muted">Adjust labels, clean noisy captures, and keep embeddings fresh.</p>
+  </div>
+  <span class="chip">{{ training_entries | length }} label group(s)</span>
+</section>
+
+{% if training_entries %}
   {% for label, images in training_entries.items() %}
-  <div class="training-group">
-    <header>
-      <h3>{{ label }}</h3>
-      <small>{{ images|length }} image(s)</small>
-    </header>
-    <div class="training-grid">
+  <section class="card">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Label</p>
+        <h2>{{ label }}</h2>
+      </div>
+      <span class="badge">{{ images | length }} image(s)</span>
+    </div>
+    <div class="gallery-grid">
       {% for image in images %}
-      <figure data-label="{{ label }}" data-image="{{ image }}">
-        <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
+      <figure class="media-card" data-label="{{ label }}" data-image="{{ image }}">
+        <div class="media-frame">
+          <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
+        </div>
         <figcaption>{{ image }}</figcaption>
-        <form class="assign-training-form">
+        <form class="form-row assign-training-form">
           <input type="hidden" name="current_label" value="{{ label }}" />
           <input type="text" name="new_label" value="{{ label }}" />
-          <button type="submit" class="secondary">Save</button>
+          <button type="submit" class="btn btn-secondary">Save</button>
         </form>
-        <button type="button" class="delete-training danger">Delete</button>
+        <button type="button" class="btn btn-danger delete-training">Delete</button>
       </figure>
       {% endfor %}
     </div>
-  </div>
+  </section>
   {% endfor %}
-  {% else %}
-  <p>No training images yet.</p>
-  {% endif %}
+{% else %}
+<section class="card">
+  <p class="card-empty">No training images yet.</p>
 </section>
+{% endif %}
 
 <script>
   document.querySelectorAll(".delete-training").forEach((btn) => {

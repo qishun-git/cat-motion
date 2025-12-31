@@ -3,39 +3,52 @@
 {% block title %}Unlabeled · Cat Motion{% endblock %}
 
 {% block content %}
-<section>
-  <h2>Unlabeled Buckets</h2>
-  {% if unlabeled_entries %}
+<section class="page-intro">
+  <div>
+    <p class="eyebrow">Unlabeled</p>
+    <h1>Triage captured frames</h1>
+    <p class="muted">Label key frames or drop noise before exporting to training.</p>
+  </div>
+  <span class="chip warn">{{ unlabeled_entries | length }} bucket(s)</span>
+</section>
+
+{% if unlabeled_entries %}
   {% for folder, images in unlabeled_entries.items() %}
-  <div class="unlabeled-group">
-    <header>
-      <h3>{{ folder }}</h3>
-      <small>{{ images|length }} image(s)</small>
-    </header>
-    <div class="unlabeled-grid">
+  <section class="card">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Bucket</p>
+        <h2>{{ folder }}</h2>
+      </div>
+      <span class="badge">{{ images | length }} image(s)</span>
+    </div>
+    <div class="gallery-grid">
       {% for image in images %}
-      <figure data-folder="{{ folder }}" data-image="{{ image }}">
-        <img src="/unlabeled/{{ folder | urlencode }}/{{ image | urlencode }}" alt="{{ folder }}" />
+      <figure class="media-card" data-folder="{{ folder }}" data-image="{{ image }}">
+        <div class="media-frame">
+          <img src="/unlabeled/{{ folder | urlencode }}/{{ image | urlencode }}" alt="{{ folder }}" />
+        </div>
         <figcaption>{{ image }}</figcaption>
-        <form class="assign-unlabeled-form">
-          <input type="text" name="label" list="known-labels" placeholder="Label" />
-          <button type="submit" class="secondary">Assign</button>
+        <form class="form-row assign-unlabeled-form">
+          <input type="text" name="label" list="known-labels" placeholder="Label name" />
+          <button type="submit" class="btn btn-primary">Assign</button>
         </form>
-        <button type="button" class="danger delete-unlabeled">Delete</button>
+        <button type="button" class="btn btn-danger delete-unlabeled">Delete</button>
       </figure>
       {% endfor %}
     </div>
-  </div>
+  </section>
   {% endfor %}
   <datalist id="known-labels">
     {% for label in known_labels %}
     <option value="{{ label }}"></option>
     {% endfor %}
   </datalist>
-  {% else %}
-  <p>No unlabeled images available.</p>
-  {% endif %}
+{% else %}
+<section class="card">
+  <p class="card-empty">No unlabeled images available.</p>
 </section>
+{% endif %}
 
 <script>
   document.querySelectorAll(".assign-unlabeled-form").forEach((form) => {

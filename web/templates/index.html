@@ -1,43 +1,58 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="stream">
-  <div class="stream-header">
-    <h2>Live Stream</h2>
-    <button type="button" id="process-btn">Process Clips</button>
+<section class="hero card">
+  <div class="hero-content">
+    <p class="eyebrow">Live Operations</p>
+    <h1>Monitor, review, and train from your Pi</h1>
+    <p>Stream directly from Motion, keep tabs on new clips, and keep the dataset tidy from any device.</p>
+    <div class="hero-actions">
+      <button type="button" class="btn btn-primary" id="process-btn">Process pending clips</button>
+      <span class="process-status" id="process-status"></span>
+    </div>
   </div>
-  <img
-    id="stream-view"
-    data-stream-url="{{ stream_url or '' }}"
-    data-stream-port="{{ stream_port or '' }}"
-    data-stream-path="{{ stream_path }}"
-    alt="Live stream"
-  />
-  <small id="process-status"></small>
+  <div class="hero-media">
+    <div class="media-frame stream-frame">
+      <div class="stream-pill">Live stream</div>
+      <img
+        id="stream-view"
+        data-stream-url="{{ stream_url or '' }}"
+        data-stream-port="{{ stream_port or '' }}"
+        data-stream-path="{{ stream_path }}"
+        alt="Live stream"
+      />
+    </div>
+    <small class="muted">The stream URL adjusts automatically to your Pi's address.</small>
+  </div>
 </section>
 
-<section>
-  <h2>Summary</h2>
-  <div class="summary-grid">
-    <article>
-      <h3>Recognized Clips</h3>
-      <p class="metric">{{ recognized_count }}</p>
-      <a href="/clips">Manage Clips</a>
+<section class="card">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Pipeline</p>
+      <h2>Capture overview</h2>
+    </div>
+  </div>
+  <div class="status-grid">
+    <article class="status-card">
+      <div class="stat-value">{{ recognized_count }}</div>
+      <div class="stat-label">Recognized clips</div>
+      <a href="/clips" class="stat-footer">View library →</a>
     </article>
-    <article>
-      <h3>Needs Review</h3>
-      <p class="metric">{{ unknown_count }}</p>
-      <a href="/clips">Label Clips</a>
+    <article class="status-card">
+      <div class="stat-value">{{ unknown_count }}</div>
+      <div class="stat-label">Need labels</div>
+      <a href="/clips" class="stat-footer">Label clips →</a>
     </article>
-    <article>
-      <h3>Unlabeled Images</h3>
-      <p class="metric">{{ unlabeled_count }}</p>
-      <a href="/clips">Process Clips</a>
+    <article class="status-card">
+      <div class="stat-value">{{ unlabeled_count }}</div>
+      <div class="stat-label">Unlabeled images</div>
+      <a href="/unlabeled" class="stat-footer">Triage frames →</a>
     </article>
-    <article>
-      <h3>Training Images</h3>
-      <p class="metric">{{ training_count }}</p>
-      <a href="/training">Review Training Set</a>
+    <article class="status-card">
+      <div class="stat-value">{{ training_count }}</div>
+      <div class="stat-label">Training examples</div>
+      <a href="/training" class="stat-footer">Review dataset →</a>
     </article>
   </div>
 </section>
@@ -64,7 +79,7 @@
       try {
         const res = await fetch("/api/process", { method: "POST" });
         const data = await res.json();
-        statusEl.textContent = `Processed ${data.processed} clip(s). Refresh page to see updates.`;
+        statusEl.textContent = `Processed ${data.processed} clip(s). Refresh for latest totals.`;
       } catch (err) {
         statusEl.textContent = "Failed to launch processor.";
       } finally {
@@ -72,6 +87,5 @@
       }
     });
   }
-
 </script>
 {% endblock %}

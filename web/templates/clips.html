@@ -3,63 +3,102 @@
 {% block title %}Clips · Cat Motion{% endblock %}
 
 {% block content %}
-<section>
-  <h2>Recognized Clips</h2>
-  <div class="clip-list manage">
+<section class="page-intro">
+  <div>
+    <p class="eyebrow">Clips</p>
+    <h1>Review processed footage</h1>
+    <p class="muted">Label unknown segments, tidy up recognized ones, and keep storage lean.</p>
+  </div>
+  <span class="chip warn">{{ recognized | length + unknown | length }} clip(s) loaded</span>
+</section>
+
+<section class="card">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Library</p>
+      <h2>Recognized clips</h2>
+      <p class="muted">Matched against embeddings. Tweak labels or archive them.</p>
+    </div>
+    <span class="badge">{{ recognized | length }}</span>
+  </div>
+  {% if recognized %}
+  <div class="clip-grid">
     {% for clip in recognized %}
-    <article data-category="recognized" data-clip="{{ clip.path }}">
-      <header>
-        <strong>{{ clip.summary.highlight_label or "Unknown" }}</strong>
-        <small>{{ clip.size_mb }} MB</small>
-      </header>
-      <video controls preload="metadata" src="/clips/recognized/{{ clip.path }}"></video>
+    <article class="clip-card" data-category="recognized" data-clip="{{ clip.path }}">
+      <div class="clip-meta">
+        <div>
+          <p class="eyebrow">Label</p>
+          <h3>{{ clip.summary.highlight_label or "Unknown" }}</h3>
+        </div>
+        <span class="badge">{{ clip.size_mb }} MB</span>
+      </div>
+      <div class="media-frame">
+        <video controls preload="metadata" src="/clips/recognized/{{ clip.path }}"></video>
+      </div>
       {% if clip.summary %}
       {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
       {% set recognized_total = clip.summary.get("recognized_total", clip.summary.get("recognized", 0)) %}
-      <p>{{ detections }} detections · {{ recognized_total }} recognized</p>
+      <div class="clip-stats">
+        <span class="chip">{{ detections }} detections</span>
+        <span class="chip good">{{ recognized_total }} recognized</span>
+      </div>
       {% endif %}
-      <form class="assign-clip-form">
+      <form class="form-row assign-clip-form">
         <input type="hidden" name="category" value="recognized" />
-        <input type="text" name="label" placeholder="Label" value="{{ clip.summary.highlight_label or '' }}" />
-        <button type="submit">Move</button>
+        <input type="text" name="label" placeholder="Label name" value="{{ clip.summary.highlight_label or '' }}" />
+        <button type="submit" class="btn btn-secondary">Move</button>
       </form>
-      <div class="actions">
-        <a href="/clips/recognized/{{ clip.path }}" target="_blank">View Clip</a>
-        <button type="button" class="delete-clip danger">Delete</button>
+      <div class="card-actions">
+        <a href="/clips/recognized/{{ clip.path }}" target="_blank" class="btn btn-ghost">View clip</a>
+        <button type="button" class="btn btn-danger delete-clip">Delete</button>
       </div>
     </article>
-    {% else %}
-    <p>No recognized clips yet.</p>
     {% endfor %}
   </div>
+  {% else %}
+  <p class="card-empty">No recognized clips yet.</p>
+  {% endif %}
 </section>
 
-<section>
-  <h2>Unknown Clips</h2>
-  <div class="clip-list manage">
+<section class="card">
+  <div class="section-header">
+    <div>
+      <p class="eyebrow">Needs attention</p>
+      <h2>Unknown clips</h2>
+      <p class="muted">Label anything the recognizer could not match.</p>
+    </div>
+    <span class="badge">{{ unknown | length }}</span>
+  </div>
+  {% if unknown %}
+  <div class="clip-grid">
     {% for clip in unknown %}
-    <article data-category="unknown" data-clip="{{ clip.path }}">
-      <header>
-        <strong>Unknown</strong>
-        <small>{{ clip.size_mb }} MB</small>
-      </header>
-      <video controls preload="metadata" src="/clips/unknown/{{ clip.path }}"></video>
+    <article class="clip-card" data-category="unknown" data-clip="{{ clip.path }}">
+      <div class="clip-meta">
+        <div>
+          <p class="eyebrow">Detected</p>
+          <h3>Unknown</h3>
+        </div>
+        <span class="badge">{{ clip.size_mb }} MB</span>
+      </div>
+      <div class="media-frame">
+        <video controls preload="metadata" src="/clips/unknown/{{ clip.path }}"></video>
+      </div>
       {% if clip.summary %}
       {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
-      <p>{{ detections }} detections</p>
+      <div class="clip-stats">
+        <span class="chip warn">{{ detections }} detection(s)</span>
+      </div>
       {% endif %}
-      <form class="assign-clip-form">
+      <form class="form-row assign-clip-form">
         <input type="hidden" name="category" value="unknown" />
         <input list="known-labels" type="text" name="label" placeholder="Label name" />
-        <button type="submit">Assign Label</button>
+        <button type="submit" class="btn btn-primary">Assign label</button>
       </form>
-      <div class="actions">
-        <a href="/clips/unknown/{{ clip.path }}" target="_blank">View Clip</a>
-        <button type="button" class="delete-clip danger">Delete</button>
+      <div class="card-actions">
+        <a href="/clips/unknown/{{ clip.path }}" target="_blank" class="btn btn-ghost">View clip</a>
+        <button type="button" class="btn btn-danger delete-clip">Delete</button>
       </div>
     </article>
-    {% else %}
-    <p>No pending clips.</p>
     {% endfor %}
   </div>
   <datalist id="known-labels">
@@ -67,6 +106,9 @@
     <option value="{{ label }}"></option>
     {% endfor %}
   </datalist>
+  {% else %}
+  <p class="card-empty">No pending clips.</p>
+  {% endif %}
 </section>
 
 <script>
