@@ -101,18 +101,11 @@ def load_config(explicit_path: Optional[Path] = None) -> AppConfig:
 
     candidate: Optional[Path] = explicit_path
     if candidate is None:
-        env_path = os.environ.get("CAT_MOTION_CONFIG")
-        if env_path:
-            candidate = Path(env_path)
-    search_order: list[Path] = []
-    if candidate is None:
-        search_order = [Path("cat_motion.yml"), Path("configs") / "cat_motion.yml"]
-        candidate = next((path for path in search_order if path.exists()), None)
-    if candidate is None or not candidate.exists():
-        paths = ", ".join(str(p.resolve()) for p in search_order) if candidate is None else str(candidate.resolve())
+        candidate = Path("cat_motion.yml")
+    if not candidate.exists():
         raise FileNotFoundError(
-            f"Config not found. Looked in: {paths}. "
-            "Pass --config / set CAT_MOTION_CONFIG so we know where your settings + model paths live."
+            f"Config not found: {candidate.resolve()}. "
+            "Pass --config so we know where your settings + model paths live."
         )
     data = _load_from_file(candidate)
     raw_base_dir = data.get("base_dir") or os.environ.get("CAT_MOTION_BASE", ".")

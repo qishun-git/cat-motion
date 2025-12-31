@@ -1,4 +1,4 @@
-base_dir: ".."
+base_dir: "."
 
 recorder:
   motion_drop_dir: "/var/lib/motion"

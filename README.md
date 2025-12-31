@@ -54,7 +54,7 @@ Document these values because the collector relies on them.
 
 ## 4. Configure cat-motion
 
-- Copy `configs/cat_motion.yml`, edit to match your Pi:  
+- Copy `cat_motion.yml`, edit to match your Pi:  
   - `recorder.motion_drop_dir` = Motion `target_dir`.  
   - `detection.model` = path to YOLO ONNX.  
   - `recognition.embeddings/labels` = outputs created by `cat-motion-train`.  
@@ -70,10 +70,10 @@ Document these values because the collector relies on them.
    source .venv/bin/activate
    pip install -e .
    ```
-2. **Collector** – `cat-motion-collector --config configs/cat_motion.yml` (runs forever; add a systemd unit later).  
-3. **Web UI** – `cat-motion-web serve --config configs/cat_motion.yml`; visit from phone/tablet.  
+2. **Collector** – `cat-motion-collector --config cat_motion.yml` (runs forever; add a systemd unit later).  
+3. **Web UI** – `cat-motion-web serve --config cat_motion.yml`; visit from phone/tablet.  
 4. **Processor** – run `cat-motion-processor` manually or tap “Process Clips” in the UI.  
-5. **Training loop** – label unlabeled clips in the UI → `cat-motion-train --config configs/cat_motion.yml` → rerun processor.
+5. **Training loop** – label unlabeled clips in the UI → `cat-motion-train --config cat_motion.yml` → rerun processor.
 
 ## 6. Self-training workflow
 
