@@ -5,7 +5,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 import typer
 import uvicorn
@@ -93,6 +93,22 @@ class AssignRequest(BaseModel):
     label: str
 
 
+class ClipAssignRequest(BaseModel):
+    category: Literal["recognized", "unknown"]
+    clip: str
+    label: str
+
+
+class ClipDeleteRequest(BaseModel):
+    category: Literal["recognized", "unknown"]
+    clip: str
+
+
+class TrainingDeleteRequest(BaseModel):
+    label: str
+    image: str
+
+
 def create_app(state: WebState) -> FastAPI:
     fastapi_app = FastAPI(title="Cat Motion Web")
     static_dir = state.paths.static
@@ -121,8 +137,47 @@ def create_app(state: WebState) -> FastAPI:
             "stream_port": stream_cfg.stream_port,
             "stream_path": stream_cfg.stream_path,
             "known_labels": state.known_labels(),
+            "active_page": "dashboard",
         }
         return state.templates.TemplateResponse("index.html", context)
+
+    @fastapi_app.get("/clips", response_class=HTMLResponse)
+    async def clips_page(request: Request) -> HTMLResponse:
+        recognized = state.list_clips(state.paths.recognized, limit=200)
+        unknown = state.list_clips(state.paths.unknown, limit=200)
+        context = {
+            "request": request,
+            "recognized": recognized,
+            "unknown": unknown,
+            "known_labels": state.known_labels(),
+            "active_page": "clips",
+        }
+        return state.templates.TemplateResponse("clips.html", context)
+
+    @fastapi_app.get("/training", response_class=HTMLResponse)
+    async def training_page(request: Request) -> HTMLResponse:
+        entries: Dict[str, List[str]] = {}
+        root = state.paths.training
+        if root.exists():
+            for label_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+                entries[label_dir.name] = [img.name for img in sorted(label_dir.glob("*.png"))]
+        context = {
+            "request": request,
+            "training_entries": entries,
+            "active_page": "training",
+        }
+        return state.templates.TemplateResponse("training.html", context)
+
+    @fastapi_app.get("/training/{label}/{image}")
+    async def training_image(label: str, image: str) -> FileResponse:
+        try:
+            label_dir = safe_join(state.paths.training, label)
+            target = safe_join(label_dir, image)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Invalid path")
+        if not target.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        return FileResponse(target)
 
     @fastapi_app.get("/api/clips/{category}")
     async def clips(category: str) -> List[Dict[str, object]]:
@@ -184,6 +239,56 @@ def create_app(state: WebState) -> FastAPI:
             raise HTTPException(status_code=404, detail="Folder not found")
         shutil.rmtree(src)
         return JSONResponse({"status": "deleted"})
+
+    def _clip_path(category: str, relative: str) -> Path:
+        root = _category_root(category)
+        try:
+            return safe_join(root, relative)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid clip path")
+
+    def _move_sidecar(src: Path, dest: Path) -> None:
+        sidecar_src = src.with_suffix(src.suffix + ".json")
+        if sidecar_src.exists():
+            sidecar_dest = dest.with_suffix(dest.suffix + ".json")
+            sidecar_dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(sidecar_src), sidecar_dest)
+
+    @fastapi_app.post("/api/clips/assign")
+    async def assign_clip(payload: ClipAssignRequest) -> JSONResponse:
+        clip_path = _clip_path(payload.category, payload.clip)
+        label = payload.label.strip()
+        if not label:
+            raise HTTPException(status_code=400, detail="Label is required")
+        dest_dir = ensure_dir(state.paths.recognized / label)
+        dest_path = dest_dir / clip_path.name
+        counter = 1
+        while dest_path.exists():
+            dest_path = dest_dir / f"{clip_path.stem}_{counter}{clip_path.suffix}"
+            counter += 1
+        shutil.move(str(clip_path), dest_path)
+        _move_sidecar(clip_path, dest_path)
+        return JSONResponse({"status": "assigned", "dest": dest_path.name})
+
+    @fastapi_app.post("/api/clips/delete")
+    async def delete_clip(payload: ClipDeleteRequest) -> JSONResponse:
+        clip_path = _clip_path(payload.category, payload.clip)
+        sidecar = clip_path.with_suffix(clip_path.suffix + ".json")
+        clip_path.unlink(missing_ok=True)
+        sidecar.unlink(missing_ok=True)
+        return JSONResponse({"status": "deleted"})
+
+    @fastapi_app.post("/api/training/delete")
+    async def delete_training(payload: TrainingDeleteRequest) -> JSONResponse:
+        label_dir = state.paths.training / payload.label
+        try:
+            image_path = safe_join(label_dir, payload.image)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid image path")
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        image_path.unlink()
+        return JSONResponse({"status": "removed"})
 
     return fastapi_app
 
