@@ -35,7 +35,10 @@
         </div>
       </div>
       <div class="media-frame">
-        <video controls preload="metadata" src="/clips/recognized/{{ clip.path }}"></video>
+        <video controls preload="metadata" playsinline>
+          <source src="/clips/recognized/{{ clip.path }}" type="video/mp4" />
+          Your browser does not support MP4 playback.
+        </video>
       </div>
       {% if clip.summary %}
       {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
@@ -85,7 +88,10 @@
         </div>
       </div>
       <div class="media-frame">
-        <video controls preload="metadata" src="/clips/unknown/{{ clip.path }}"></video>
+        <video controls preload="metadata" playsinline>
+          <source src="/clips/unknown/{{ clip.path }}" type="video/mp4" />
+          Your browser does not support MP4 playback.
+        </video>
       </div>
       {% if clip.summary %}
       {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}

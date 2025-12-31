@@ -211,7 +211,7 @@ def create_app(state: WebState) -> FastAPI:
         recognized_page: int = Query(1, alias="recognized_page", ge=1),
         unknown_page: int = Query(1, alias="unknown_page", ge=1),
     ) -> HTMLResponse:
-        per_page = 12
+        per_page = 3
 
         def paginate_clips(root: Path, page: int) -> Dict[str, object]:
             offset = (page - 1) * per_page
