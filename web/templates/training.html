@@ -25,7 +25,7 @@
     <div class="gallery-grid">
       {% for image in images %}
       <figure class="media-card" data-label="{{ label }}" data-image="{{ image }}">
-        <div class="media-frame">
+        <div class="media-frame media-frame--preview">
           <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
         </div>
         <figcaption>{{ image }}</figcaption>

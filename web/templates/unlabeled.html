@@ -37,7 +37,7 @@
           <input type="checkbox" class="select-image" />
           <span></span>
         </label>
-        <div class="media-frame">
+        <div class="media-frame media-frame--preview">
           <img src="/unlabeled/{{ folder | urlencode }}/{{ image | urlencode }}" alt="{{ folder }}" />
         </div>
         <figcaption>{{ image }}</figcaption>
@@ -59,6 +59,14 @@
 {% endif %}
 
 <script>
+  const removeBucketIfEmpty = (figure) => {
+    const section = figure.closest("section.card");
+    if (!section) return;
+    if (section.querySelectorAll("figure").length === 0) {
+      section.remove();
+    }
+  };
+
   document.querySelectorAll(".delete-unlabeled").forEach((btn) => {
     btn.addEventListener("click", async () => {
       if (!confirm("Delete this image?")) return;
@@ -70,6 +78,7 @@
         });
         if (!res.ok) throw new Error("failed");
         figure.remove();
+        removeBucketIfEmpty(figure);
       } catch (err) {
         alert("Failed to delete image.");
         btn.disabled = false;
@@ -127,7 +136,10 @@
         if (!res.ok) throw new Error("failed");
         selectedImages.forEach((image) => {
           const figure = Array.from(formWrapper.querySelectorAll("figure")).find((fig) => fig.dataset.image === image);
-          figure?.remove();
+          if (figure) {
+            figure.remove();
+            removeBucketIfEmpty(figure);
+          }
         });
         labelInput.value = label;
       } catch (err) {

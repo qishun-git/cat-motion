@@ -266,6 +266,14 @@ def create_app(state: WebState) -> FastAPI:
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid image path")
 
+    def _cleanup_unlabeled_folder(folder: str) -> None:
+        folder_path = _unlabeled_folder(folder)
+        if folder_path.exists():
+            try:
+                next(folder_path.iterdir())
+            except StopIteration:
+                folder_path.rmdir()
+
     @fastapi_app.get("/unlabeled/{folder}/{image}")
     async def unlabeled_image(folder: str, image: str) -> FileResponse:
         target = _unlabeled_image_path(folder, image)
@@ -313,6 +321,7 @@ def create_app(state: WebState) -> FastAPI:
         if not image_path.exists():
             raise HTTPException(status_code=404, detail="Image not found")
         _assign_image_to_label(image_path, label)
+        _cleanup_unlabeled_folder(folder)
         return JSONResponse({"status": "assigned"})
 
     @fastapi_app.post("/api/unlabeled/{folder}/bulk-assign")
@@ -335,6 +344,7 @@ def create_app(state: WebState) -> FastAPI:
                 raise HTTPException(status_code=404, detail=f"{image_name} not found")
             _assign_image_to_label(image_path, label)
             assigned += 1
+        _cleanup_unlabeled_folder(folder)
         return JSONResponse({"status": "assigned", "count": assigned})
 
     @fastapi_app.post("/api/unlabeled/{folder}/{image}/delete")
@@ -343,6 +353,7 @@ def create_app(state: WebState) -> FastAPI:
         if not image_path.exists():
             raise HTTPException(status_code=404, detail="Image not found")
         image_path.unlink()
+        _cleanup_unlabeled_folder(folder)
         return JSONResponse({"status": "deleted"})
 
     def _clip_path(category: str, relative: str) -> Path:
