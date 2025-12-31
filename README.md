@@ -88,6 +88,7 @@ Features:
 - Live stream embed (MJPEG from Motion).  
 - Recognized/unknown clip cards with file size + JSON summaries.  
 - Clips page to assign labels, download, or delete recordings.  
+- Unlabeled page to preview each extracted image, assign labels individually, or delete them.  
 - Training page to preview and prune training images.  
 - Mobile-friendly unlabeled triage forms with assign/delete actions.  
 - Buttons to trigger processing and refresh configuration remotely.

@@ -64,7 +64,7 @@ class WebState:
             )
         return clips
 
-    def list_unlabeled(self, root: Path) -> List[Dict[str, object]]:
+    def list_unlabeled_folders(self, root: Path) -> List[Dict[str, object]]:
         entries: List[Dict[str, object]] = []
         if not root.exists():
             return entries
@@ -75,6 +75,15 @@ class WebState:
                     "count": sum(1 for _ in folder.glob("*")),
                 }
             )
+        return entries
+
+    def list_unlabeled_images(self) -> Dict[str, List[str]]:
+        entries: Dict[str, List[str]] = {}
+        root = self.paths.unlabeled
+        if not root.exists():
+            return entries
+        for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+            entries[folder.name] = [img.name for img in sorted(folder.glob("*.png"))]
         return entries
 
     def known_labels(self) -> List[str]:
@@ -139,13 +148,11 @@ def create_app(state: WebState) -> FastAPI:
 
     @fastapi_app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
-        recognized = state.list_clips(state.paths.recognized)
-        unknown = state.list_clips(state.paths.unknown)
-        unlabeled = state.list_unlabeled(state.paths.unlabeled)
+        recognized_count = len(state.list_clips(state.paths.recognized))
+        unknown_count = len(state.list_clips(state.paths.unknown))
+        unlabeled_images = state.list_unlabeled_images()
+        unlabeled_count = sum(len(images) for images in unlabeled_images.values())
         training_entries = state.list_training_images()
-        recognized_count = len(recognized)
-        unknown_count = len(unknown)
-        unlabeled_count = sum(folder["count"] for folder in unlabeled)
         training_count = sum(len(images) for images in training_entries.values())
         stream_cfg = state.config.web
         context = {
@@ -173,6 +180,17 @@ def create_app(state: WebState) -> FastAPI:
             "active_page": "clips",
         }
         return state.templates.TemplateResponse("clips.html", context)
+
+    @fastapi_app.get("/unlabeled", response_class=HTMLResponse)
+    async def unlabeled_page(request: Request) -> HTMLResponse:
+        entries = state.list_unlabeled_images()
+        context = {
+            "request": request,
+            "unlabeled_entries": entries,
+            "known_labels": state.known_labels(),
+            "active_page": "unlabeled",
+        }
+        return state.templates.TemplateResponse("unlabeled.html", context)
 
     @fastapi_app.get("/training", response_class=HTMLResponse)
     async def training_page(request: Request) -> HTMLResponse:
@@ -228,6 +246,20 @@ def create_app(state: WebState) -> FastAPI:
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid folder")
 
+    def _unlabeled_image_path(folder: str, image: str) -> Path:
+        folder_path = _unlabeled_folder(folder)
+        try:
+            return safe_join(folder_path, image)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid image path")
+
+    @fastapi_app.get("/unlabeled/{folder}/{image}")
+    async def unlabeled_image(folder: str, image: str) -> FileResponse:
+        target = _unlabeled_image_path(folder, image)
+        if not target.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        return FileResponse(target)
+
     @fastapi_app.post("/api/unlabeled/{folder}/assign")
     async def assign_unlabeled(folder: str, payload: AssignRequest) -> JSONResponse:
         label = payload.label.strip()
@@ -254,6 +286,31 @@ def create_app(state: WebState) -> FastAPI:
         if not src.exists():
             raise HTTPException(status_code=404, detail="Folder not found")
         shutil.rmtree(src)
+        return JSONResponse({"status": "deleted"})
+
+    @fastapi_app.post("/api/unlabeled/{folder}/{image}/assign")
+    async def assign_unlabeled_image(folder: str, image: str, payload: AssignRequest) -> JSONResponse:
+        label = payload.label.strip()
+        if not label:
+            raise HTTPException(status_code=400, detail="Label is required")
+        image_path = _unlabeled_image_path(folder, image)
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        dest_dir = ensure_dir(state.paths.training / label)
+        dest_path = dest_dir / image_path.name
+        counter = 1
+        while dest_path.exists():
+            dest_path = dest_dir / f"{image_path.stem}_{counter}{image_path.suffix}"
+            counter += 1
+        shutil.move(str(image_path), dest_path)
+        return JSONResponse({"status": "assigned"})
+
+    @fastapi_app.post("/api/unlabeled/{folder}/{image}/delete")
+    async def delete_unlabeled_image(folder: str, image: str) -> JSONResponse:
+        image_path = _unlabeled_image_path(folder, image)
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        image_path.unlink()
         return JSONResponse({"status": "deleted"})
 
     def _clip_path(category: str, relative: str) -> Path:
