@@ -8,7 +8,7 @@ recorder:
 detection:
   model: "yolov5n.onnx"
   input_size: [640, 640]
-  class_ids: [0]
+  class_ids: [15]
   conf_threshold: 0.25
   iou_threshold: 0.45
 
