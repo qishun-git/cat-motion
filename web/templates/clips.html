@@ -20,9 +20,9 @@
       <p class="muted">Matched against embeddings. Page through to revisit older captures.</p>
     </div>
   </div>
-  {% if recognized.items %}
+  {% if recognized.entries %}
   <div class="clip-grid">
-    {% for clip in recognized.items %}
+    {% for clip in recognized.entries %}
     <article class="clip-card" data-category="recognized" data-clip="{{ clip.path }}">
       <div class="clip-meta">
         <div>
@@ -70,9 +70,9 @@
       <p class="muted">Unknown clips are retried on the next processing run. Delete to drop noise.</p>
     </div>
   </div>
-  {% if unknown.items %}
+  {% if unknown.entries %}
   <div class="clip-grid">
-    {% for clip in unknown.items %}
+    {% for clip in unknown.entries %}
     <article class="clip-card" data-category="unknown" data-clip="{{ clip.path }}">
       <div class="clip-meta">
         <div>

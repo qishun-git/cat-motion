@@ -219,7 +219,7 @@ def create_app(state: WebState) -> FastAPI:
             has_next = len(entries) > per_page
             display = entries[:per_page]
             return {
-                "items": display,
+                "entries": display,
                 "page": page,
                 "has_prev": page > 1,
                 "has_next": has_next,

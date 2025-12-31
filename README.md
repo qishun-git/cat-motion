@@ -71,7 +71,7 @@ Document these values because the collector relies on them.
    pip install -e .
    ```
 2. **Collector** – `cat-motion-collector --config configs/cat_motion.yml` (runs forever; add a systemd unit later).  
-3. **Web UI** – `cat-motion-web --config configs/cat_motion.yml`; visit from phone/tablet.  
+3. **Web UI** – `cat-motion-web serve --config configs/cat_motion.yml`; visit from phone/tablet.  
 4. **Processor** – run `cat-motion-processor` manually or tap “Process Clips” in the UI.  
 5. **Training loop** – label unlabeled clips in the UI → `cat-motion-train --config configs/cat_motion.yml` → rerun processor.
 
@@ -97,6 +97,6 @@ Features:
 
 - `cat-motion-collector` – ingest Motion clips into `data/clips/`.  
 - `cat-motion-processor` – detection + recognition pass with trimming + exports.  
-- `cat-motion-web` – FastAPI dashboard.  
+- `cat-motion-web serve` – FastAPI dashboard.  
 - `cat-motion-train` – rebuild embedding centroids + label map from `data/training/`.  
 - `CAT_MOTION_CONFIG=/path/to/config.yml` – override config path for any command.
