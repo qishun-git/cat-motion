@@ -31,4 +31,4 @@ processing:
 web:
   host: "0.0.0.0"
   port: 8000
-  stream_url: "http://pi.local:8081"
+  stream_url: "http://localhost:8081/?action=stream"
