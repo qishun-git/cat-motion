@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Training · Cat Motion{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Training Images</h2>
+  {% if training_entries %}
+  {% for label, images in training_entries.items() %}
+  <div class="training-group">
+    <header>
+      <h3>{{ label }}</h3>
+      <small>{{ images|length }} image(s)</small>
+    </header>
+    <div class="training-grid">
+      {% for image in images %}
+      <figure data-label="{{ label }}" data-image="{{ image }}">
+        <img src="/training/{{ label | urlencode }}/{{ image | urlencode }}" alt="{{ label }}" />
+        <figcaption>{{ image }}</figcaption>
+        <button type="button" class="delete-training danger">Delete</button>
+      </figure>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p>No training images yet.</p>
+  {% endif %}
+</section>
+
+<script>
+  document.querySelectorAll(".delete-training").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this training image?")) {
+        return;
+      }
+      const figure = btn.closest("figure");
+      const payload = {
+        label: figure.dataset.label,
+        image: figure.dataset.image,
+      };
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/training/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("failed");
+        figure.remove();
+      } catch (err) {
+        alert("Failed to delete image.");
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}

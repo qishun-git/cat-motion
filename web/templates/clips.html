@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Clips · Cat Motion{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Recognized Clips</h2>
+  <div class="clip-list manage">
+    {% for clip in recognized %}
+    <article data-category="recognized" data-clip="{{ clip.path }}">
+      <header>
+        <strong>{{ clip.summary.highlight_label or "Unknown" }}</strong>
+        <small>{{ clip.size_mb }} MB</small>
+      </header>
+      {% if clip.summary %}
+      {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
+      {% set recognized_total = clip.summary.get("recognized_total", clip.summary.get("recognized", 0)) %}
+      <p>{{ detections }} detections · {{ recognized_total }} recognized</p>
+      {% endif %}
+      <form class="assign-clip-form">
+        <input type="hidden" name="category" value="recognized" />
+        <input type="text" name="label" placeholder="Label" value="{{ clip.summary.highlight_label or '' }}" />
+        <button type="submit">Move</button>
+      </form>
+      <div class="actions">
+        <a href="/clips/recognized/{{ clip.path }}" target="_blank">Download</a>
+        <button type="button" class="delete-clip danger">Delete</button>
+      </div>
+    </article>
+    {% else %}
+    <p>No recognized clips yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2>Unknown Clips</h2>
+  <div class="clip-list manage">
+    {% for clip in unknown %}
+    <article data-category="unknown" data-clip="{{ clip.path }}">
+      <header>
+        <strong>Unknown</strong>
+        <small>{{ clip.size_mb }} MB</small>
+      </header>
+      {% if clip.summary %}
+      {% set detections = clip.summary.get("detections_total", clip.summary.get("detections", 0)) %}
+      <p>{{ detections }} detections</p>
+      {% endif %}
+      <form class="assign-clip-form">
+        <input type="hidden" name="category" value="unknown" />
+        <input list="known-labels" type="text" name="label" placeholder="Label name" />
+        <button type="submit">Assign Label</button>
+      </form>
+      <div class="actions">
+        <a href="/clips/unknown/{{ clip.path }}" target="_blank">Download</a>
+        <button type="button" class="delete-clip danger">Delete</button>
+      </div>
+    </article>
+    {% else %}
+    <p>No pending clips.</p>
+    {% endfor %}
+  </div>
+  <datalist id="known-labels">
+    {% for label in known_labels %}
+    <option value="{{ label }}"></option>
+    {% endfor %}
+  </datalist>
+</section>
+
+<script>
+  document.querySelectorAll(".assign-clip-form").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const article = form.closest("article");
+      const labelInput = form.querySelector("input[name='label']");
+      const label = labelInput.value.trim();
+      if (!label) {
+        alert("Enter a label.");
+        return;
+      }
+      const payload = {
+        category: article.dataset.category,
+        clip: article.dataset.clip,
+        label,
+      };
+      form.querySelector("button").disabled = true;
+      try {
+        const res = await fetch("/api/clips/assign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("failed");
+        location.reload();
+      } catch (err) {
+        alert("Failed to assign clip.");
+      } finally {
+        form.querySelector("button").disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll(".delete-clip").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this clip?")) return;
+      const article = btn.closest("article");
+      const payload = {
+        category: article.dataset.category,
+        clip: article.dataset.clip,
+      };
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/clips/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("failed");
+        article.remove();
+      } catch (err) {
+        alert("Failed to delete clip.");
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}
