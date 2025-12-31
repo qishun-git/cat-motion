@@ -30,5 +30,5 @@ processing:
 
 web:
   host: "0.0.0.0"
-  port: 8080
+  port: 8000
   stream_url: "http://pi.local:8081"
