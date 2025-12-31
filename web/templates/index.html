@@ -6,7 +6,13 @@
     <h2>Live Stream</h2>
     <button type="button" id="process-btn">Process Clips</button>
   </div>
-  <img src="{{ stream_url }}" alt="Live stream" />
+  <img
+    id="stream-view"
+    data-stream-url="{{ stream_url or '' }}"
+    data-stream-port="{{ stream_port or '' }}"
+    data-stream-path="{{ stream_path }}"
+    alt="Live stream"
+  />
   <small id="process-status"></small>
 </section>
 
@@ -68,6 +74,18 @@
 <script>
   const btn = document.getElementById("process-btn");
   const statusEl = document.getElementById("process-status");
+  const streamEl = document.getElementById("stream-view");
+  if (streamEl) {
+    let src = streamEl.dataset.streamUrl;
+    if (!src) {
+      const port = streamEl.dataset.streamPort || "8081";
+      const path = streamEl.dataset.streamPath || "/?action=stream";
+      const host = window.location.hostname;
+      const protocol = window.location.protocol.startsWith("http") ? window.location.protocol : "http:";
+      src = `${protocol}//${host}${port ? `:${port}` : ""}${path}`;
+    }
+    streamEl.src = src;
+  }
   if (btn) {
     btn.addEventListener("click", async () => {
       btn.disabled = true;

@@ -111,12 +111,15 @@ def create_app(state: WebState) -> FastAPI:
         recognized = state.list_clips(state.paths.recognized)
         unknown = state.list_clips(state.paths.unknown)
         unlabeled = state.list_unlabeled(state.paths.unlabeled)
+        stream_cfg = state.config.web
         context = {
             "request": request,
             "recognized": recognized,
             "unknown": unknown,
             "unlabeled": unlabeled,
-            "stream_url": state.config.web.stream_url,
+            "stream_url": stream_cfg.stream_url,
+            "stream_port": stream_cfg.stream_port,
+            "stream_path": stream_cfg.stream_path,
             "known_labels": state.known_labels(),
         }
         return state.templates.TemplateResponse("index.html", context)

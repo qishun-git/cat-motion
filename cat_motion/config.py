@@ -62,7 +62,9 @@ class ProcessingConfig(BaseModel):
 class WebConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = Field(default=8080, ge=1, le=65535)
-    stream_url: str = "http://pi.local:8081"
+    stream_url: Optional[str] = None
+    stream_port: Optional[int] = Field(default=8081, ge=1, le=65535)
+    stream_path: str = "/?action=stream"
     stream_content_type: str = "image/jpeg"
     templates_dir: Optional[Path] = None
 

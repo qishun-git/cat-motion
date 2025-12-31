@@ -59,6 +59,7 @@ Document these values because the collector relies on them.
   - `detection.model` = path to YOLO ONNX.  
   - `recognition.embeddings/labels` = outputs created by `cat-motion-train`.  
   - `processing` settings = frame stride, detection interval, trimming, unlabeled export behavior.  
+  - `web.stream_url` (optional) – leave empty to auto-build a URL using the dashboard host + `web.stream_port`.  
 - Point `CAT_MOTION_CONFIG` at your YAML file (or use `--config` on every CLI).
 
 ## 5. Run the stack
